@@ -1459,7 +1459,7 @@ def ROGS_sector():
     df['Year'] = df['Year'].astype(str)
 
     st.markdown(f'Source: <a href="https://www.pc.gov.au/research/ongoing/report-on-government-services/2022/housing-and-homelessness">Report on Government Services 2023, Part G, Sector Overview</a>', unsafe_allow_html=True)
-    col1, col2 = st.columns(2)
+    col1, col2, col3 = st.columns(3)
     Population = pd.read_csv('DATA/PROCESSED DATA/Population/Population_State_Sex_Age_to_65+.csv')
     #Population filter for All ages, Total, mm=06
     Population['Date'] = pd.to_datetime(Population['Date'], format='%d/%m/%y', dayfirst=True, errors='coerce')
@@ -1479,7 +1479,7 @@ def ROGS_sector():
     with col1:
         select_measure_sector = st.selectbox('Select measure', df['Measure'].unique())                
         datalabels = st.radio('Data labels', ['On', 'Off'], index=0, horizontal=True)
-    with col2:
+    with col3:
         st.markdown('<table style="background-color: yellow; font-weight: bold; font-style: italic"><tr><td>Series can be toggled on/off by clicking on the legend</td></tr></table>', unsafe_allow_html=True)
 
     df = df[df['Measure'] == select_measure_sector]
@@ -1609,7 +1609,8 @@ def ROGS_sector():
             st.plotly_chart(fig)
 
     if select_measure_sector == 'Income units receiving CRA':
-        select_view = st.selectbox('Select view', ['Demographics', 'Housing affordability'])
+        with col2:
+            select_view = st.selectbox('Select view', ['Demographics', 'Housing affordability'])
         if select_view == 'Demographics':
             #in Description2, replace "Income unit" with "family type"
             df['Description2'] = df['Description2'].str.replace('Income unit', 'Family type')
@@ -1758,7 +1759,8 @@ def ROGS_sector():
             df = df.sort_values(by=['Year'], ascending=True)
             #if Equity_Group null copy from Remoteness
             df['Equity_Group'] = df['Equity_Group'].fillna(df['Remoteness'])
-            ha_filter = st.selectbox('Select group', df['Equity_Group'].unique(), index=4)
+            with col2:
+                ha_filter = st.selectbox('Select group', df['Equity_Group'].unique(), index=4)
             df = df[df['Equity_Group'] == ha_filter]
             df1 = df[df['Description2'] == 'Paying more than 30% of income on rent']
             df2 = df[df['Description2'] == 'Paying more than 50% of income on rent']
