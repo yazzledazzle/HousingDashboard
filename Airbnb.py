@@ -66,7 +66,7 @@ def airbnb_wa():
     return
 
 def airbnb_geo():
-    st.markdown(f'#### Geographic filters - entire home listings')
+    st.markdown(f'#### Geographic filters')
 
 
 
