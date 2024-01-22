@@ -2,21 +2,17 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
-
-df_wa_total = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_WAtotals.csv')
-df_wa_total['date'] = pd.to_datetime(df_wa_total['date'], format='%Y-%m-%d', errors='coerce')
-df_wa_total = df_wa_total.sort_values(by='date', ascending=True)
-#rename count_listings to count
-df_wa_total = df_wa_total.rename(columns={'count_listings': 'count'})
-#date to string
-df_wa_total['date'] = df_wa_total['date'].astype(str)
-df_geo = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_allgeo.csv')
-#rename SA2_NAME_2016 to SA2, SA3_NAME_2016 to SA3, SA4_NAME_2016 to SA4
-df_geo = df_geo.rename(columns={'SA2_NAME_2016':'SA2', 'SA3_NAME_2016':'SA3', 'SA4_NAME_2016':'SA4', 'id_count': 'count'})
-
-
-
 def airbnb_wa():
+    df_wa_total = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_WAtotals.csv')
+    df_wa_total['date'] = pd.to_datetime(df_wa_total['date'], format='%Y-%m-%d', errors='coerce')
+    df_wa_total = df_wa_total.sort_values(by='date', ascending=True)
+    #rename count_listings to count
+    df_wa_total = df_wa_total.rename(columns={'count_listings': 'count'})
+    #date to string
+    df_wa_total['date'] = df_wa_total['date'].astype(str)
+    df_geo = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_allgeo.csv')
+    #rename SA2_NAME_2016 to SA2, SA3_NAME_2016 to SA3, SA4_NAME_2016 to SA4
+    df_geo = df_geo.rename(columns={'SA2_NAME_2016':'SA2', 'SA3_NAME_2016':'SA3', 'SA4_NAME_2016':'SA4', 'id_count': 'count'})
 
     fig = go.Figure()
     for room_type in df_wa_total['room_type'].unique():
@@ -66,6 +62,17 @@ def airbnb_wa():
     return
 
 def airbnb_geo():
+    df_wa_total = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_WAtotals.csv')
+    df_wa_total['date'] = pd.to_datetime(df_wa_total['date'], format='%Y-%m-%d', errors='coerce')
+    df_wa_total = df_wa_total.sort_values(by='date', ascending=True)
+    #rename count_listings to count
+    df_wa_total = df_wa_total.rename(columns={'count_listings': 'count'})
+    #date to string
+    df_wa_total['date'] = df_wa_total['date'].astype(str)
+    df_geo = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_allgeo.csv')
+    #rename SA2_NAME_2016 to SA2, SA3_NAME_2016 to SA3, SA4_NAME_2016 to SA4
+    df_geo = df_geo.rename(columns={'SA2_NAME_2016':'SA2', 'SA3_NAME_2016':'SA3', 'SA4_NAME_2016':'SA4', 'id_count': 'count'})
+
     st.markdown(f'#### Geographic filters')
 
 
@@ -101,9 +108,6 @@ def airbnb_geo():
                     #if all selected, groupby date, room_type, SA3, sum count, mean price, mean availability_365, median price, median availability_365
                     if len(SA2) == len(df_geo['SA2'].unique()):
                         df_geo_fil = df_geo_fil.groupby(['date', 'room_type', 'SA3']).agg({'count': 'sum', 'price_mean': 'mean', 'availability_365_mean': 'mean', 'price_median': 'median', 'availability_365_median': 'median'}).reset_index()
-
-
-
 
     elif select_geo == 'Federal electorate':
         fed_electorate = st.multiselect('Select federal electorate', df_geo['electorate'].unique())
@@ -176,9 +180,5 @@ def airbnb_geo():
     fig5.update_layout(barmode='group', xaxis={'categoryorder':'category ascending'})
     fig5.update_layout(title='Mean availability of Airbnb listings in area', xaxis_title='', yaxis_title='Mean availability (days)')
     st.plotly_chart(fig5)
-
-
-
     return
 
-airbnb_wa()
