@@ -1478,7 +1478,8 @@ def ROGS_sector():
 
     with col1:
         select_measure_sector = st.selectbox('Select measure', df['Measure'].unique())
-    st.markdown('<table style="background-color: yellow; font-weight: bold; font-style: italic"><tr><td>Region series can be toggled on/off by clicking on the legend</td></tr></table>', unsafe_allow_html=True)
+    with col2:
+        st.markdown('<table style="background-color: yellow; font-weight: bold; font-style: italic"><tr><td>Series can be toggled on/off by clicking on the legend</td></tr></table>', unsafe_allow_html=True)
 
     df = df[df['Measure'] == select_measure_sector]
     df['Year'] = df['Year'].astype(str)
@@ -1607,17 +1608,25 @@ def ROGS_sector():
             st.plotly_chart(fig)
 
     if select_measure_sector == 'Income units receiving CRA':
-        #fill blank Equity_Group with 'No special need'
-        df['Equity_Group'] = df['Equity_Group'].fillna('No equity group')
-        filter_for_sector = st.selectbox('Filter for', df['Equity_Group'].unique())
+        col1, col2 = st.columns(2)
+        groups = df['Equity_Group'].unique()
+        groups = groups.tolist()
+        #remove nan
+        groups.remove(np.nan)
+        with col1:
+            filter_for_sector = st.selectbox('Group', groups)
         df = df[df['Equity_Group'] == filter_for_sector]
-        select_sector = st.selectbox('Select', df['Description2'].unique())
+        with col2:
+            select_sector = st.selectbox('Detail', df['Description2'].unique())
         df = df[df['Description2'] == select_sector]
-        select_year_sector = st.selectbox('Select year', df['Year'].unique())
+        with col1:
+            select_year_sector = st.selectbox('Select year', df['Year'].unique(), index=len(df['Year'].unique())-1)
         df = df[df['Year'] == select_year_sector]
-        regions_sector = st.multiselect('Select regions', regions, default=regions)
+        with col2:
+            regions_sector = st.multiselect('Select regions', regions, default=regions)
         if len(df['Description4'].unique()) > 1:
-            filter_sector = st.selectbox('Filter', df['Description3'].unique())
+            with col1:
+                filter_sector = st.selectbox('Filter', df['Description3'].unique())
             df = df[df['Description3'] == filter_sector]
         df['Description4'] = df['Description4'].fillna(df['Description3'])
         dfProp = df[df['Unit'] == '%']
@@ -1627,11 +1636,11 @@ def ROGS_sector():
         for region in regions_sector:
             fig.add_trace(go.Bar(x=dfProp['Description4'], y=dfProp[region], name=region))
             fig2.add_trace(go.Bar(x=dfNum['Description4'], y=dfNum[region], name=region))
-        st.write(f'Proportion of income units receiving CRA - {filter_for_sector}, {select_sector}, {filter_sector}')
+        st.write(f'Proportion of income units receiving CRA - {filter_for_sector}, {select_sector}')
         fig.update_layout(barmode='group',xaxis_title="Category", yaxis_title="Proportion")
         fig2.update_layout(barmode='group', xaxis_title="Category", yaxis_title="Number")
         st.plotly_chart(fig)
-        st.write(f'Number of income units receiving CRA - {filter_for_sector}, {select_sector}, {filter_sector}')
+        st.write(f'Number of income units receiving CRA - {filter_for_sector}, {select_sector}')
         st.plotly_chart(fig2)
     return
       
