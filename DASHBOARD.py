@@ -1477,7 +1477,8 @@ def ROGS_sector():
     df = df[df['Measure'] != 'Households residing in community housing']
 
     with col1:
-        select_measure_sector = st.selectbox('Select measure', df['Measure'].unique())
+        select_measure_sector = st.selectbox('Select measure', df['Measure'].unique())                
+        datalabels = st.radio('Data labels', ['On', 'Off'], index=0, horizontal=True)
     with col2:
         st.markdown('<table style="background-color: yellow; font-weight: bold; font-style: italic"><tr><td>Series can be toggled on/off by clicking on the legend</td></tr></table>', unsafe_allow_html=True)
 
@@ -1608,40 +1609,104 @@ def ROGS_sector():
             st.plotly_chart(fig)
 
     if select_measure_sector == 'Income units receiving CRA':
+        #in Description2, replace "Income unit" with "family type"
+        df['Description2'] = df['Description2'].str.replace('Income unit', 'Family type')
+        #replace All with Support payment type
+        df['Description2'] = df['Description2'].str.replace('All', 'Support payment type')
+        #remove from Description2: Major cities Inner regional Outer regional Remote Very remote
+        df= df[df['Description2'] != 'Major cities']
+        df= df[df['Description2'] != 'Inner regional']
+        df= df[df['Description2'] != 'Outer regional']
+        df= df[df['Description2'] != 'Remote']
+        df= df[df['Description2'] != 'Very remote']
+
         col1, col2 = st.columns(2)
         groups = df['Equity_Group'].unique()
         groups = groups.tolist()
         #remove nan
         groups.remove(np.nan)
         with col1:
-            filter_for_sector = st.selectbox('Group', groups)
-        df = df[df['Equity_Group'] == filter_for_sector]
-        with col2:
-            select_sector = st.selectbox('Detail', df['Description2'].unique())
-        df = df[df['Description2'] == select_sector]
-        with col1:
-            select_year_sector = st.selectbox('Select year', df['Year'].unique(), index=len(df['Year'].unique())-1)
-        df = df[df['Year'] == select_year_sector]
-        with col2:
-            regions_sector = st.multiselect('Select regions', regions, default=regions)
-        if len(df['Description4'].unique()) > 1:
-            with col1:
-                filter_sector = st.selectbox('Filter', df['Description3'].unique())
-            df = df[df['Description3'] == filter_sector]
-        df['Description4'] = df['Description4'].fillna(df['Description3'])
-        dfProp = df[df['Unit'] == '%']
-        dfNum = df[df['Unit'] == 'no.']
-        fig = go.Figure()
-        fig2 = go.Figure()
-        for region in regions_sector:
-            fig.add_trace(go.Bar(x=dfProp['Description4'], y=dfProp[region], name=region))
-            fig2.add_trace(go.Bar(x=dfNum['Description4'], y=dfNum[region], name=region))
-        st.write(f'Proportion of income units receiving CRA - {filter_for_sector}, {select_sector}')
-        fig.update_layout(barmode='group',xaxis_title="Category", yaxis_title="Proportion")
-        fig2.update_layout(barmode='group', xaxis_title="Category", yaxis_title="Number")
-        st.plotly_chart(fig)
-        st.write(f'Number of income units receiving CRA - {filter_for_sector}, {select_sector}')
-        st.plotly_chart(fig2)
+            filter_for_sector = st.selectbox('Filter for', df['Description1'].unique())
+        df = df[df['Description1'] == filter_for_sector]
+        if filter_for_sector == 'Income units receiving CRA':
+            with col2:
+                select_sector = st.selectbox('Detail', df['Description2'].unique())
+            df = df[df['Description2'] == select_sector]
+            if select_sector == 'Paying enough rent to be eligible for maximum assistance':
+                #allow select region, select year
+                with col1:
+                    select_years_sector = st.multiselect('Select year', df['Year'].unique(), default=df['Year'].unique())
+                df = df[df['Year'].isin(select_years_sector)]
+                fig = go.Figure()
+                #for region in regions, add trace to fig
+                for region in regions:
+                    fig.add_trace(go.Bar(x=df['Year'], y=df[region], name=region))
+                fig.update_layout(barmode='group', title='Paying enough rent to be eligible for maximum assistance', xaxis_title="Year", yaxis_title="%")
+                #add data labels inside bars
+                if datalabels == 'On':
+                    fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
+                st.plotly_chart(fig)
+            if select_sector == 'Geographic location':
+                #select year
+                with col1:
+                    select_years_geo = st.multiselect('Select year', df['Year'].unique(), default=df['Year'].unique())
+                with col2:
+                    select_unit = st.selectbox('Select unit', df['Unit'].unique())
+                df = df[df['Year'].isin(select_years_geo)]
+                df = df[df['Unit'] == select_unit]
+                fig = go.Figure()
+                for region in regions:
+                    fig.add_trace(go.Bar(x=[df['Description3'],df['Year']], y=df[region], name=region))
+                #add figure inside bar
+                if datalabels == 'On':
+                    fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
+                fig.update_layout(barmode='group', title='By geographic location', xaxis_title="Year", yaxis_title=select_unit)
+                st.plotly_chart(fig)
+            if select_sector == 'Total':
+                fig = go.Figure()
+                for region in regions:
+                    fig.add_trace(go.Bar(x=df['Year'], y=df[region], name=region))
+                fig.update_layout(barmode='group', title='Total receiving CRA', xaxis_title="Year", yaxis_title=df['Unit'].unique()[0])
+                if datalabels == 'On':
+                    fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
+                st.plotly_chart(fig)
+            if select_sector == "Aboriginal and Torres Strait Islander":
+                df1 = df[df['Table_Number'] == 'GA.8']
+                df2 = df[df['Table_Number'] == 'GA.9']
+                a8list = df1['Description3'].unique().tolist()
+                #remove total
+                a8list.remove('Total')
+                fig = go.Figure()
+                df1pc = df1[df1['Unit'] == '%']
+                df1no = df1[df1['Unit'] == 'no.']
+                for region in regions:
+                    fig.add_trace(go.Bar(x=df1pc['Description3'], y=df1pc[region], name=region))
+                fig.update_layout(barmode='stack', title='Aboriginal and Torres Strait Islander recipient family types - %', xaxis_title="Family type", yaxis_title='%')
+                if datalabels == 'On':
+                    fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
+                st.plotly_chart(fig)
+                fig2 = go.Figure()
+                for region in regions:
+                    fig2.add_trace(go.Bar(x=df1no['Description3'], y=df1no[region], name=region))
+                fig2.update_layout(barmode='stack', title='Aboriginal and Torres Strait Islander recipient family types - no.', xaxis_title="Family type", yaxis_title='no.')
+                if datalabels == 'On':
+                    fig2.update_traces(texttemplate='%{y:.2s}', textposition='inside')
+                st.plotly_chart(fig2)
+                fig3 = go.Figure()
+                for region in regions:
+                    fig3.add_trace(go.Bar(x=df2['Description3'], y=df2[region], name=region))
+                fig3.update_layout(barmode='stack', title='Aboriginal and Torres Strait Islander recipient payment types - %', xaxis_title="Payment type", yaxis_title='%')
+                if datalabels == 'On':
+                    fig3.update_traces(texttemplate='%{y:.2s}', textposition='inside')
+                st.plotly_chart(fig3)
+
+
+                    
+
+
+
+                    
+
     return
       
 def ROGS_housing():
