@@ -1811,6 +1811,35 @@ def ROGS_homelessness():
                     fig1.add_trace(go.Bar(x=df_fig1_fil['Year'], y=df_fig1_fil[region], name=region))
                 fig1.update_layout(barmode='group', title=Desc2, xaxis_title="Year", yaxis_title='Number')
                 st.plotly_chart(fig1)
+
+    if select_measure == "Homelessness; by homelessness operational group":
+        #fill Description2 null with persons
+        df['Description2'] = df['Description2'].fillna('Persons')
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            Desc2 = st.selectbox('Select Description2 filter', df['Description2'].unique(), index=0)
+            df = df[df['Description2'] == Desc2]
+        with col2:
+            if len(df['Description3'].unique()) > 1:
+                Desc3 = st.selectbox('Select Description3 filter', df['Description3'].unique(), index=0)
+                df = df[df['Description3'] == Desc3]
+        with col3:
+            if len(df['Description4'].unique()) > 1:
+                Desc4 = st.selectbox('Select Description4 filter', df['Description4'].unique(), index=0)
+                df = df[df['Description4'] == Desc4]
+
+        #sort Year ascending
+        df = df.sort_values(by=['Year'], ascending=True)
+        #for region in regions, filter df for region, plotly bar, x=Year, y=Value, color=Region, group
+        fig = go.Figure()
+        yunits = df['Unit'].unique()[0]
+        for region in regions:
+            fig.add_trace(go.Bar(x=df['Year'], y=df[region], name=region))
+        fig.update_layout(barmode='group', title='Homelessness; by homelessness operational group', xaxis_title="Year", yaxis_title=yunits)
+        
+
+        st.plotly_chart(fig)
+
     return
 
 def external_resources():
