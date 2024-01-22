@@ -1498,8 +1498,7 @@ def ROGS_sector():
         fig.update_layout(barmode='group', title='NHHA funding', yaxis_title=ytitle)
         #legend below chart
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="right", x=1))
-        with col1:
-            st.plotly_chart(fig)
+        st.plotly_chart(fig)
 
         fig2 = go.Figure()
         for region in regions_sector:
@@ -1507,8 +1506,7 @@ def ROGS_sector():
         fig2.update_layout(barmode='group', title='CRA funding', yaxis_title=ytitle)
         #legend below chart
         fig2.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="right", x=1))
-        with col2:
-            st.plotly_chart(fig2)
+        st.plotly_chart(fig2)
 
     if select_measure_sector == "Low income rental households":
         with col2:
@@ -1609,10 +1607,10 @@ def ROGS_sector():
             st.plotly_chart(fig)
 
     if select_measure_sector == 'Income units receiving CRA':
-        #fill blank Special_Need with 'No special need'
-        df['Special_Need'] = df['Special_Need'].fillna('No special need')
-        filter_for_sector = st.selectbox('Filter for', df['Special_Need'].unique())
-        df = df[df['Special_Need'] == filter_for_sector]
+        #fill blank Equity_Group with 'No special need'
+        df['Equity_Group'] = df['Equity_Group'].fillna('No equity group')
+        filter_for_sector = st.selectbox('Filter for', df['Equity_Group'].unique())
+        df = df[df['Equity_Group'] == filter_for_sector]
         select_sector = st.selectbox('Select', df['Description2'].unique())
         df = df[df['Description2'] == select_sector]
         select_year_sector = st.selectbox('Select year', df['Year'].unique())
@@ -1649,7 +1647,8 @@ def ROGS_housing():
     rogshousing = rogshousing[rogshousing['Measure'] != 'Self-reported benefits of living in social housing - SOMIH']
     rogshousing = rogshousing[rogshousing['Measure'] != 'Self-reported benefits of living in social housing - Community housing']
 
-
+    #sort Year ascending
+    rogshousing = rogshousing.sort_values(by='Year', ascending=True)
 
     col1, col2 = st.columns(2)
     with col1: 
@@ -1715,8 +1714,11 @@ def ROGS_homelessness():
     st.markdown(f'Source: <a href="https://www.pc.gov.au/ongoing/report-on-government-services/2023/housing-and-homelessness/homelessness-services">Report on Government Services 2023, Part G, Section 19 - Homelessness Services</a>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
+    
 
     df = pd.read_csv('DATA/PROCESSED DATA/ROGS/ROGS G19.csv', encoding='latin-1')
+    #sort year ascending
+    df = df.sort_values(by='Year', ascending=True)
     df['Year'] = df['Year'].astype(str)
 
     df = df.rename(columns={'Aust': 'National'})
