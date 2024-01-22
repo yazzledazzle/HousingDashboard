@@ -1454,6 +1454,8 @@ def SHS_client_groups():
 
 def ROGS_sector():
     df = pd.read_csv('DATA/PROCESSED DATA/ROGS/ROGS G.csv', encoding='latin-1')
+    #sort year ascending
+    df = df.sort_values(by='Year', ascending=True)
     df['Year'] = df['Year'].astype(str)
 
     st.markdown(f'Source: <a href="https://www.pc.gov.au/research/ongoing/report-on-government-services/2022/housing-and-homelessness">Report on Government Services 2023, Part G, Sector Overview</a>', unsafe_allow_html=True)
