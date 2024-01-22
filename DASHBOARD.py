@@ -5,45 +5,43 @@ import plotly.express as px
 import numpy as np
 
 
-
-st.set_page_config(layout="wide")
-goto = st.sidebar.selectbox('Select page', ['Waitlist', 'ROGS', 'SHS monthly data', 'Airbnb', 'Census', 'External resources', 'User guide'], index=0)
-if goto == 'Waitlist':
-    Waitlist_select = st.sidebar.selectbox('Select view', ['Latest data', 'Overall trend', 'Breakdowns'])
-    if Waitlist_select == 'Latest data':
-        waitlist_latest()
-    elif Waitlist_select == 'Overall trend':
-        waitlist_trendcharts()
-    elif Waitlist_select == 'Breakdowns':
-        waitlist_breakdowns()
-        
-elif goto == 'External resources':
-    external_resources()
-elif goto == 'ROGS':
-    ROGS_select = st.sidebar.selectbox('Select ROGS page', ['Sector overview', 'Housing', 'Homelessness'])
-    if ROGS_select == 'Sector overview':
-        ROGS_sector()
-    elif ROGS_select == 'Housing':
-        ROGS_housing()
-    elif ROGS_select == 'Homelessness':
-        ROGS_homelessness()
-elif goto == 'SHS monthly data':
-    SHS_select = st.sidebar.selectbox('Select SHS page', ['Client groups', 'Reasons for seeking assistance'])
-    if SHS_select == 'Client groups':
-        SHS_client_groups()
-    elif SHS_select == 'Reasons for seeking assistance':
-        SHS_reasons()
-elif goto == 'Airbnb':
-    Airbnb_select = st.sidebar.selectbox('Select Airbnb page', ['WA total - by room type', 'Geographic filters'])
-    if Airbnb_select == 'WA total - by room type':
-        airbnb_wa()
-    elif Airbnb_select == 'Geographic filters':
-        airbnb_geo()
-elif goto == 'User guide':
-    show_update_log()
-
-
-
+def home():
+    st.set_page_config(layout="wide")
+    goto = st.sidebar.selectbox('Select page', ['Waitlist', 'ROGS', 'SHS monthly data', 'Airbnb', 'Census', 'External resources', 'User guide'], index=0)
+    if goto == 'Waitlist':
+        Waitlist_select = st.sidebar.selectbox('Select view', ['Latest data', 'Overall trend', 'Breakdowns'])
+        if Waitlist_select == 'Latest data':
+            waitlist_latest()
+        elif Waitlist_select == 'Overall trend':
+            waitlist_trendcharts()
+        elif Waitlist_select == 'Breakdowns':
+            waitlist_breakdowns()
+            
+    elif goto == 'External resources':
+        external_resources()
+    elif goto == 'ROGS':
+        ROGS_select = st.sidebar.selectbox('Select ROGS page', ['Sector overview', 'Housing', 'Homelessness'])
+        if ROGS_select == 'Sector overview':
+            ROGS_sector()
+        elif ROGS_select == 'Housing':
+            ROGS_housing()
+        elif ROGS_select == 'Homelessness':
+            ROGS_homelessness()
+    elif goto == 'SHS monthly data':
+        SHS_select = st.sidebar.selectbox('Select SHS page', ['Client groups', 'Reasons for seeking assistance'])
+        if SHS_select == 'Client groups':
+            SHS_client_groups()
+        elif SHS_select == 'Reasons for seeking assistance':
+            SHS_reasons()
+    elif goto == 'Airbnb':
+        Airbnb_select = st.sidebar.selectbox('Select Airbnb page', ['WA total - by room type', 'Geographic filters'])
+        if Airbnb_select == 'WA total - by room type':
+            airbnb_wa()
+        elif Airbnb_select == 'Geographic filters':
+            airbnb_geo()
+    elif goto == 'User guide':
+        show_update_log()
+    return
 
 def sidebar():
     goto = st.sidebar.selectbox('Select page', ['Waitlist', 'ROGS', 'SHS monthly data', 'Airbnb', 'Census', 'External resources', 'Update log', 'User guide'])
@@ -2006,4 +2004,6 @@ def airbnb_geo():
     st.plotly_chart(fig5)
     return
 
+if __name__ == "__main__":
+    home()
 
