@@ -1284,6 +1284,8 @@ def ROGS_sector():
         fig.update_layout(barmode='group', title='NHHA funding', yaxis_title=ytitle)
         #legend below chart
         fig.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="right", x=1))
+        if datalabels == 'On':
+            fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
         st.plotly_chart(fig)
 
         fig2 = go.Figure()
@@ -1292,6 +1294,8 @@ def ROGS_sector():
         fig2.update_layout(barmode='group', title='CRA funding', yaxis_title=ytitle)
         #legend below chart
         fig2.update_layout(legend=dict(orientation="h", yanchor="bottom", y=-0.2, xanchor="right", x=1))
+        if datalabels == 'On':
+            fig2.update_traces(texttemplate='%{y:.2s}', textposition='inside')
         st.plotly_chart(fig2)
 
     if select_measure_sector == "Low income rental households":
@@ -1312,6 +1316,9 @@ def ROGS_sector():
             fig2.add_trace(go.Bar(x=dfNum['Description2'], y=dfNum[region], name=region))
         fig.update_layout(barmode='group', title='Proportion of low income rental households paying more than 30% of income on housing costs', xaxis_title="Remoteness", yaxis_title=ytitle1)
         fig2.update_layout(barmode='group', title='Number of low income rental households paying more than 30% of income on housing costs', xaxis_title="Remoteness", yaxis_title=ytitle2)
+        if datalabels == 'On':
+            fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
+            fig2.update_traces(texttemplate='%{y:.2s}', textposition='inside')
         st.plotly_chart(fig)
         st.plotly_chart(fig2)
 
@@ -1327,6 +1334,8 @@ def ROGS_sector():
             for region in regions_sector:
                 fig.add_trace(go.Bar(x=dfHA['Year'], y=dfHA[region], name=region))
             fig.update_layout(barmode='group', title=charttitle, xaxis_title="Year", yaxis_title=ytitle)
+            if datalabels == 'On':
+                fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
             st.plotly_chart(fig)
         if compare_sector == 'Years':
             regions_sector = st.selectbox('Select region', regions)
@@ -1336,6 +1345,8 @@ def ROGS_sector():
                 dfHA = df[df['Year'] == year]
                 fig.add_trace(go.Bar(x=dfHA['Year'], y=dfHA[regions], name=year))
             fig.update_layout(barmode='group', title=charttitle, xaxis_title="Year", yaxis_title=ytitle)
+            if datalabels == 'On':
+                fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
             st.plotly_chart(fig)
         if compare_sector == 'States & years':
             regions_sector = st.multiselect('Select regions', regions, default=regions)
@@ -1351,6 +1362,8 @@ def ROGS_sector():
             #add figure inside bar
             fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
             fig.update_layout(barmode='group', title=charttitle, yaxis_title=ytitle)
+            if datalabels == 'On':
+                fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
             st.plotly_chart(fig)
     if select_measure_sector == "Housing composition by tenure type":
         df['Description4'] = df['Description4'].fillna(df['Description3'])
@@ -1367,29 +1380,50 @@ def ROGS_sector():
             for region in regions_sector:
                 fig.add_trace(go.Bar(x=df['Description4'], y=df[region], name=region))
             fig.update_layout(barmode='group', title='Proportion of renters by tenure type', xaxis_title="Tenure type", yaxis_title="Proportion")
+            if datalabels == 'On':
+                fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
             st.plotly_chart(fig)
         if compare_sector == 'Years':
             regions_sector = st.selectbox('Select region', regions)
+            #YEAR TO STRING
+            df['Year'] = df['Year'].astype(str)
             years_sector = st.multiselect('Select years', df['Year'].unique(), default=df['Year'].unique())
-            df = df[df['Year'].isin(years_sector)]
-            #Bar of Year as string category on x, y=df[region] for region, use px
-            fig = px.bar(df, x='Year', y=regions, color='Description4', title='Proportion of renters by tenure type', barmode='group', labels={'Year': 'Year', regions: 'Proportion', 'Description4': 'Tenure type'})
+            fig = go.Figure()
+            for year in years_sector:
+                df = df[df['Year'] == year]
+                fig.add_trace(go.Bar(x=df['Description4'], y=df[regions_sector], name=year))
+            if datalabels == 'On':
+                fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
             st.plotly_chart(fig)
         if compare_sector == 'States & years':
             regions_sector = st.multiselect('Select regions', regions, default=regions)
             years_sector = st.multiselect('Select years', df['Year'].unique(), default=df['Year'].unique())
+            tenure = st.selectbox('Select tenure type', df['Description4'].unique())
+            df = df[df['Description4'] == tenure]
             df = df[df['Year'].isin(years_sector)]
             dflong = pd.melt(df, id_vars=cols, value_vars=regions, var_name='Region', value_name='Value')
             #for year in years, filter dflong for year, plotly express bar, x=Region, y=Value, color=Region, facet_col=Year
             dflong['Year'] = dflong['Year'].astype(str)
             #dflong Region in regions
             dflong = dflong[dflong['Region'].isin(regions_sector)]
-            fig = px.bar(dflong, x='Year', y='Value', color='Description4', facet_col='Region', facet_col_wrap=1, title='Proportion of renters by tenure type', barmode='group', labels={'Region': 'Region', 'Value': '%'})
-            #label y value inside bars
+            fig = go.Figure()
+            dflong = dflong[dflong['Description4'] == tenure]
+            fig.add_trace(go.Bar(x=[dflong['Region'], dflong['Year']], y=dflong['Value']))
+            if tenure == 'Home owners without a mortgage':
+                    fig.update_traces(marker_color='green')
+            if tenure == 'Home owners with a mortgage':
+                    fig.update_traces(marker_color='blue')
+            if tenure == 'Private rental':
+                    fig.update_traces(marker_color='red')
+            if tenure == 'Public housing':
+                    fig.update_traces(marker_color='orange')
+
+            fig.update_layout(barmode='stack', title='Proportion of renters by tenure type', xaxis_title="Tenure type", yaxis_title="Proportion")
             fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
             #legend title Tenure type
             fig.update_layout(legend_title_text='Tenure type')
-            #don't show fac
+            if datalabels == 'On':
+                fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
             st.plotly_chart(fig)
 
     if select_measure_sector == 'Income units receiving CRA':
