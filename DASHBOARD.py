@@ -4,6 +4,32 @@ import plotly.graph_objects as go
 import plotly.express as px
 import numpy as np
 
+Waitlist_latestdf = 'DATA/PROCESSED DATA/PUBLIC HOUSING/Waitlist_trend_latest.csv'
+Waitlist_trend_longdf = 'DATA/PROCESSED DATA/PUBLIC HOUSING/Waitlist_trend_long.csv'
+Waitlist_breakdownsdf = 'DATA/SOURCE DATA/Public housing/Waitlist_breakdowns.csv'
+ROGSSectordf = 'DATA/PROCESSED DATA/ROGS/ROGS G.csv'
+ROGSHomelessnessdf = 'DATA/PROCESSED DATA/ROGS/ROGS G19.csv'
+ROGSHousingdf = 'DATA/SOURCE DATA/ROGS and SHS/ROGS G18.csv'
+SHSReasonsdf = 'DATA/PROCESSED DATA/SHS/Long_Form/SHS_Reasons_Long_Form.csv'
+SHSClientGroupsdf = 'DATA/PROCESSED DATA/SHS/SHS_Client_Groups.csv'
+PopulationStateSexAge65df = 'DATA/PROCESSED DATA/Population/Population_State_Sex_Age_to_65+.csv'
+PopulationStateMonthlydf = 'DATA/PROCESSED DATA/Population/Population_State_Total_monthly.csv'
+AirbnbWATotaldf = 'DATA/PROCESSED DATA/Market and economy/Airbnb_WAtotals.csv'
+AirbnbGeodf = 'DATA/PROCESSED DATA/Market and economy/Airbnb_allgeo.csv'
+
+waitlist_sourceURL = "https://www.parliament.wa.gov.au/Parliament/Pquest.nsf/(SearchResultsAllDesc)?SearchView&Query=(Housing%20waitlist)&Start=1&SearchOrder=4&SearchMax=1000"
+waitlist_sourceText = "Parliamentary Questions"
+
+ROGSHomelessnessSourceURL = "https://www.pc.gov.au/ongoing/report-on-government-services/2023/housing-and-homelessness/homelessness-services"
+ROGSHomelessnessSourceText = "Report on Government Services 2024, Part G, Section 19 - Homelessness Services"
+ROGSHousingSourceURL = "https://www.pc.gov.au/ongoing/report-on-government-services/2023/housing-and-homelessness/housing"
+ROGSHousingSourceText = "Report on Government Services 2024, Part G, Section 18 - Housing"
+ROGSSectorSourceURL = "https://www.pc.gov.au/research/ongoing/report-on-government-services/2022/housing-and-homelessness"
+ROGSSectorSourceText = "Report on Government Services 2024, Part G - Housing and Homelessness"
+SHSSourceURL = "https://www.aihw.gov.au/reports/homelessness-services/specialist-homelessness-services-monthly-data/data"
+SHSSourceText = "Australian Institute of Health and Welfare - Specialist homelessness services, monthly data"
+
+
 
 def home():
     st.set_page_config(layout="wide")
@@ -15,8 +41,7 @@ def home():
         elif Waitlist_select == 'Overall trend':
             waitlist_trendcharts()
         elif Waitlist_select == 'Breakdowns':
-            waitlist_breakdowns()
-            
+            waitlist_breakdowns()  
     elif goto == 'External resources':
         external_resources()
     elif goto == 'ROGS':
@@ -43,49 +68,7 @@ def home():
         show_update_log()
     return
 
-def sidebar():
-    goto = st.sidebar.selectbox('Select page', ['Waitlist', 'ROGS', 'SHS monthly data', 'Airbnb', 'Census', 'External resources', 'Update log', 'User guide'])
-    if goto == 'Waitlist':
-        Waitlist_select = st.sidebar.selectbox('Select view', ['Latest data', 'Overall trend', 'Breakdowns'])
-        if Waitlist_select == 'Latest data':
-            waitlist_latest()
-        elif Waitlist_select == 'Overall trend':
-            waitlist_trendcharts()
-        elif Waitlist_select == 'Breakdowns':
-            waitlist_breakdowns()
-            
-        
-    elif goto == 'External resources':
-        external_resources()
-    elif goto == 'ROGS':
-        ROGS_select = st.sidebar.selectbox('Select ROGS page', ['Sector overview', 'Housing', 'Homelessness'])
-        if ROGS_select == 'Sector overview':
-            ROGS_sector()
-            sidebar()
-        elif ROGS_select == 'Housing':
-            ROGS_housing()
-        elif ROGS_select == 'Homelessness':
-            ROGS_homelessness()
-    elif goto == 'SHS monthly data':
-        SHS_select = st.sidebar.selectbox('Select SHS page', ['Client groups', 'Reasons for seeking assistance'])
-        sidebar()
-        if SHS_select == 'Client groups':
-            SHS_client_groups()
-            sidebar()
-        elif SHS_select == 'Reasons for seeking assistance':
-            SHS_reasons()
-    elif goto == 'Airbnb':
-        Airbnb_select = st.sidebar.selectbox('Select Airbnb page', ['WA total - by room type', 'Geographic filters'])
-        if Airbnb_select == 'WA total - by room type':
-            airbnb_wa()
-        elif Airbnb_select == 'Geographic filters':
-            airbnb_geo()
-    return
-
 def waitlist_latest():
-
-  Waitlist_trend_latest = pd.read_csv('DATA/PROCESSED DATA/PUBLIC HOUSING/Waitlist_trend_latest.csv')
-
   class WaitlistUpdate:
       def __init__(self, Date, Category, Subcategory, Metric, MetricDetail, MetricAs, MetricCalc, MetricCalcAs, Estimate, Value, FontColor):
           self.Date = Date
@@ -102,7 +85,9 @@ def waitlist_latest():
 
   waitlist_updates = []
 
-  for index, row in Waitlist_trend_latest.iterrows():
+#do not remove index from statement - necessary for tuples
+  Waitlist_trend_latestdf = pd.read_csv(Waitlist_latestdf)
+  for index, row in Waitlist_trend_latestdf.iterrows():
       update = WaitlistUpdate(
           Date = row['Date'],
           Category = row['Description1'],
@@ -132,8 +117,18 @@ def waitlist_latest():
                   (AveragePersonsPriority, 'Average Number Of Individuals Per Application', 'Priority'),
                   (AveragePersonsNonpriority, 'Average Number Of Individuals Per Application', 'Nonpriority')
                 ]
-      
-  for category, cat1, cat2 in categories:
+  waitlist_calc_categories(waitlist_updates, categories)            
+  latest_date = max(TotalApplications['Date'], TotalIndividuals['Date'], PriorityApplications['Date'], PriorityIndividuals['Date'])
+  latest_date = pd.to_datetime(latest_date)
+  latest_date = latest_date.strftime('%d %B %Y')
+  st.markdown(f'Source: <a href="{waitlist_sourceURL}">{waitlist_sourceText} - last updated {latest_date} </a>', unsafe_allow_html=True)
+  latest_table(latest_date, TotalApplications, TotalIndividuals, PriorityApplications, PriorityIndividuals, NonpriorityApplications, NonpriorityIndividuals, ProportionPriorityApplications, ProportionPriorityIndividuals, AveragePersonsTotal, AveragePersonsPriority, AveragePersonsNonpriority)
+  prior_month_table(TotalApplications, TotalIndividuals, PriorityApplications, PriorityIndividuals, NonpriorityApplications, NonpriorityIndividuals)
+  prior_year_table(TotalApplications, TotalIndividuals, PriorityApplications, PriorityIndividuals, NonpriorityApplications, NonpriorityIndividuals)
+  return
+
+def waitlist_calc_categories(waitlist_updates, categories):
+    for category, cat1, cat2 in categories:
           category['Date'] = [x.Date for x in waitlist_updates if x.Category == cat1 and x.Subcategory == cat2]
           category['Date'] = max(category['Date'])
           category['Value'] = [x.Value for x in waitlist_updates if x.Category == cat1 and x.Subcategory == cat2 and x.Metric == 'Number' and x.MetricAs == 'Actual' and x.MetricCalc == '-']
@@ -178,14 +173,10 @@ def waitlist_latest():
               category['percentage of population prior year'] = [x.Value for x in waitlist_updates if x.Category == cat1 and x.Subcategory == cat2 and x.Metric == 'Percentage of population' and x.MetricCalc == 'change from prior year' and x.MetricCalcAs == 'Actual']
               category['percentage of population prior year %'] = [x.Value for x in waitlist_updates if x.Category == cat1 and x.Subcategory == cat2 and x.Metric == 'Percentage of population' and x.MetricCalc == 'change from prior year' and x.MetricCalcAs == 'Percentage']
               category['percentage of population prior year font color'] = [x.FontColor for x in waitlist_updates if x.Category == cat1 and x.Subcategory == cat2 and x.Metric == 'Percentage of population' and x.MetricCalc == 'change from prior year' and x.MetricCalcAs == 'Actual']
-              
-  #latest date is max of TotalApplications['Date'], TotalIndividuals['Date'], PriorityApplications['Date'], PriorityIndividuals['Date'], taken as datetime from yyyy-mm-dd, converted to dd mmmm yyyy
-  latest_date = max(TotalApplications['Date'], TotalIndividuals['Date'], PriorityApplications['Date'], PriorityIndividuals['Date'])
-  latest_date = pd.to_datetime(latest_date)
-  latest_date = latest_date.strftime('%d %B %Y')
+    return category
 
+def latest_table(latest_date, TotalApplications, TotalIndividuals, PriorityApplications, PriorityIndividuals, NonpriorityApplications, NonpriorityIndividuals, ProportionPriorityApplications, ProportionPriorityIndividuals, AveragePersonsTotal, AveragePersonsPriority, AveragePersonsNonpriority):
   st.markdown(f'### As at ' + latest_date)
-  #two columns, heading2 on left  = Applications, heading2 on right = Individuals
   st.markdown(f'''
               <style>
               .custom-table {{
@@ -234,7 +225,6 @@ def waitlist_latest():
           font-style: italic;
       }}
 
-              
       .pm-ta {{
               color: {TotalApplications["Prior month font color"][0]};
               }}
@@ -396,7 +386,6 @@ def waitlist_latest():
       color: {TotalIndividuals["Rolling average prior month difference font color"][0]};
       }}
 
-      
       .data-cell-total-count, .data-cell-priority, data-cell-nonpriority, .data-cell-total, .pm-ta, .pm-pa, .pm-npa, .pm-ti, .pm-pi, .pm-npi, .pm-tp, .pm-ip, .pm-tpp, .pm-pp, .pm-npp, .pm-tpop, .pm-ipop, .pm-npop, .pm-tavgppa, .pm-pavgppa, .pm-npavgppa, .py-ta, .py-pa, .py-npa, .py-ti, .py-pi, .py-npi, .py-tp, .py-ip, .py-tpp, .py-pp, .py-npp, .py-tpop, .py-ipop, .py-npop, .py-tavgppa, .py-pavgppa, .py-npavgppa, .ra-ta, .ra-pa, .ra-pi, .ra-ti, .ra-pm-ta, .ra-pm-pa, .ra-pm-pi, .ra-pm-ti {{
           height: 0.8cm;
           width: 0.8cm;
@@ -547,7 +536,9 @@ def waitlist_latest():
       </tr>
   </table>
   ''', unsafe_allow_html=True)
+  return
 
+def prior_month_table(TotalApplications, TotalIndividuals, PriorityApplications, PriorityIndividuals, NonpriorityApplications, NonpriorityIndividuals):
   st.markdown('</br>', unsafe_allow_html=True)
   st.markdown(f'**Changes from prior month**')
   st.markdown(f'''
@@ -601,8 +592,10 @@ def waitlist_latest():
           <td class="pm-pi">{PriorityIndividuals["Prior month"][0]:,.0f}</td>
           <td class="pm-npi">{NonpriorityIndividuals["Prior month"][0]:,.0f}</td>
   ''', unsafe_allow_html=True)
-  #add title and table for prior year
   st.markdown('</br>', unsafe_allow_html=True)
+  return
+
+def prior_year_table(TotalApplications, TotalIndividuals, PriorityApplications, PriorityIndividuals, NonpriorityApplications, NonpriorityIndividuals):
   st.markdown(f'**Changes from prior year**')
   st.markdown(f'''
       <table class="custom-table">
@@ -658,11 +651,11 @@ def waitlist_latest():
   return
 
 def waitlist_trendcharts():
-    data = pd.read_csv('DATA/PROCESSED DATA/PUBLIC HOUSING/Waitlist_trend_long.csv')
+    data = pd.read_csv(Waitlist_trend_longdf)
     data['Date'] = pd.to_datetime(data['Date'])
     latest_date = data['Date'].max()
     latest_date = pd.to_datetime(latest_date, format='%Y-%m-%d').strftime('%B %Y')
-    st.markdown(f'Source: <a href="https://www.parliament.wa.gov.au/Parliament/Pquest.nsf/(SearchResultsAllDesc)?SearchView&Query=(Housing%20waitlist)&Start=1&SearchOrder=4&SearchMax=1000">Parliamentary questions - last updated {latest_date} </a>', unsafe_allow_html=True)
+    st.markdown(f'Source: <a href="{waitlist_sourceURL}">{waitlist_sourceText} - last updated {latest_date} </a>', unsafe_allow_html=True)
     class WaitlistTrend:
         def __init__(self, Date, Category, Subcategory, Metric, MetricDetail, MetricAs, MetricCalc, MetricCalcAs, Estimate, Value, FontColor):
             self.Date = Date
@@ -712,7 +705,6 @@ def waitlist_trendcharts():
 
     dates = [x.Date for x in waitlist_trend]
     dates = pd.DataFrame(columns=['Date'], data=dates)
-    #set to datetime
     dates['Date'] = pd.to_datetime(dates['Date'])
     max_date = dates['Date'].max()
     if graph_type == 'Priority & non-priority':
@@ -721,16 +713,13 @@ def waitlist_trendcharts():
     else:
         min_date = dates['Date'].min()
     daterange = dates[(dates['Date'] >= min_date) & (dates['Date'] <= max_date)]
-    #sort and drop duplicates
     daterange = daterange.sort_values(by=['Date'], ascending=True)
     daterange = daterange.drop_duplicates(subset=['Date'], keep='first')
 
     st.markdown("**Select date range:**")
     select_date_slider= st.select_slider('', options=daterange, value=(min_date, max_date), format_func=lambda x: x.strftime('%b %y'))
     startgraph, endgraph = list(select_date_slider)[0], list(select_date_slider)[1]
-    #filter data based on date range
     waitlist_trend = [x for x in waitlist_trend if x.Date >= startgraph and x.Date <= endgraph]
-
     waitlist_totalapp = [x for x in waitlist_trend if x.Category == 'Total' and x.Subcategory == 'Applications' and x.Metric == 'Number' and x.MetricAs == 'Actual' and x.MetricCalc == '-']
     waitlist_totalapp = pd.DataFrame.from_records([s.__dict__ for s in waitlist_totalapp])
     waitlist_priorityapp = [x for x in waitlist_trend if x.Category == 'Priority' and x.Subcategory == 'Applications' and x.Metric == 'Number' and x.MetricAs == 'Actual' and x.MetricCalc == '-']
@@ -775,7 +764,6 @@ def waitlist_trendcharts():
     rolling_avgpriind = pd.DataFrame.from_records([s.__dict__ for s in rolling_avgpriind])
     rolling_avgnonind = [x for x in waitlist_trend if x.Category == 'Nonpriority' and x.Subcategory == 'Individuals' and x.Metric == '12 month rolling average' and x.MetricDetail == '-'and x.MetricAs == 'Actual' and x.MetricCalc == '-']
     rolling_avgnonind = pd.DataFrame.from_records([s.__dict__ for s in rolling_avgnonind])
-
 
     fig = go.Figure()
     if select == 'Applications':
@@ -842,19 +830,18 @@ def waitlist_trendcharts():
 
     fig.update_layout(
         xaxis=dict(
-            tickformat="%b %y",  # Format for mmm yy
-            tick0=waitlist_totalapp['Date'].min(),  # Starting point
-            dtick="M3"  # Interval of 3 months
+            tickformat="%b %y",  
+            tick0=waitlist_totalapp['Date'].min(),  
+            dtick="M3"
         ),
         legend=dict(
             yanchor="top",
             y=0.99,
             xanchor="left",
-            x=1.1  # Adjust these values to move the legend further away
+            x=1.1  
         ),
     )
 
-    #4 columns
     col1, col2, col3 = st.columns(3)
     with col3:
         st.markdown('<table style="background-color: yellow; font-weight: bold; font-style: italic"><tr><td>Series can be toggled on/off by clicking on the legend</td></tr></table>', unsafe_allow_html=True)
@@ -863,18 +850,13 @@ def waitlist_trendcharts():
     return
 
 def waitlist_breakdowns():
-    source = pd.read_csv('DATA/SOURCE DATA/Public housing/Waitlist_breakdowns.csv')
-    st.markdown(f'Source: <a href="https://www.parliament.wa.gov.au/Parliament/Pquest.nsf/(SearchResultsAllDesc)?SearchView&Query=(Housing%20waitlist)&Start=1&SearchOrder=4&SearchMax=1000">Parliamentary questions</a>', unsafe_allow_html=True)
+    data = pd.read_csv(Waitlist_breakdownsdf)
+    st.markdown(f'Source: <a href="{waitlist_sourceURL}">{waitlist_sourceText}</a>', unsafe_allow_html=True)
 
-    data = source.copy()
-    #filter data for Item = Dwelling need | New tenancies by region
     data = data[(data['Item'] == 'Dwelling need') | (data['Item'] == 'New tenancies by region') | (data['Item'] == 'Waiting time by region') | (data['Item'] == 'Waiting time by dwelling need')]
 
-    #for columns in DATA, if column name is 'Date', convert to datetime
     if 'Date' in data.columns:
         data['Date'] = pd.to_datetime(data['Date'], dayfirst=True)
-
-    #create separate dataframe for each Category in column 'Category'
 
     col1, col2 = st.columns(2)
     with col1:
@@ -895,12 +877,11 @@ def waitlist_breakdowns():
     with col2:
         filtered_data = filtered_data[filtered_data['Subcategory'] == subcategory]
         if len(filtered_data['Region'].unique()) > 1:
-            region = st.selectbox('Region', ['All'] + list(filtered_data['Region'].unique()), index=0)  # Include 'All' option in region selectbox
+            region = st.selectbox('Region', ['All'] + list(filtered_data['Region'].unique()), index=0) 
             if region != 'All':    
                 filtered_data = filtered_data[filtered_data['Region'] == region]
 
     latest_date = filtered_data['Date'].max()
-    #convert to dd mmmm yy
     latest_date = latest_date.strftime('%d %B %Y')
     with col2:
         st.markdown('<table style="background-color: yellow; font-weight: bold; font-style: italic"><tr><td>Series can be toggled on/off by clicking on the legend</td></tr></table>', unsafe_allow_html=True)
@@ -913,12 +894,9 @@ def waitlist_breakdowns():
             categories = dwellingdata['Category'].unique()
             for category in categories:
                 st.markdown('**{view} for {category} {subcategory} at {latest_date}**'.format(view=view, category=category, subcategory=subcategory, latest_date=latest_date), unsafe_allow_html=True)
-                #filter data to only include latest date
                 pie1 = filtered_data[filtered_data['Date'] == latest_date]
                 piecat = pie1[pie1['Category'] == category]
-                #pie chart of Value by Detail
                 fig = px.pie(piecat, values='Value', names='Detail')
-                #label Value and %
                 if datalabels == 'On':
                     fig.update_traces(texttemplate='%{value:,.0f} (%{percent})', textposition='inside')
                 st.plotly_chart(fig)
@@ -950,21 +928,16 @@ def waitlist_breakdowns():
                 st.plotly_chart(fig3)
         else:
             st.markdown('**{view} for {category} {subcategory} at {latest_date}**'.format(view=view, category=category, subcategory=subcategory, latest_date=latest_date), unsafe_allow_html=True)
-            #filter data to only include latest date
-            filtered_filtered_data = filtered_data[filtered_data['Date'] == latest_date]
-            #pie chart of Value by Detail
+            filtered_data = filtered_data[filtered_data['Date'] == latest_date]
             fig = px.pie(filtered_data, values='Value', names='Detail')
             st.plotly_chart(fig)
-            #bar chart of Value by Date, stack by Detail
             fig2 = go.Figure()
             for Detail in filtered_data['Detail'].unique():
                 fig2filtered_data = filtered_data[filtered_data['Detail'] == Detail]
                 fig2filtered_data['Date'] = fig2filtered_data['Date'].dt.strftime('%d %B %Y')
                 fig2.add_trace(go.Bar(x=fig2filtered_data['Date'], y=fig2filtered_data['Value'], name=Detail))
-                #label data inside top bar
             if datalabels == 'On':
                 fig2.update_traces(texttemplate='%{y:.0f}', textposition='inside')
-            #barmode stack
             fig2.update_layout(barmode='stack')
 
             st.plotly_chart(fig2, use_container_width=True)
@@ -973,57 +946,36 @@ def waitlist_breakdowns():
             dates = filtered_data['Date'].unique()
             for date in dates:
                 fig3filtered_data = filtered_data[filtered_data['Date'] == date]
-                #convert date to string
                 date = date.strftime('%d %B %Y')
                 fig3.add_trace(go.Bar(x=fig3filtered_data['Detail'], y=fig3filtered_data['Value'], name=date))
             if datalabels == 'On':
                 fig3.update_traces(texttemplate='%{y:.0f}', textposition='inside')
             st.plotly_chart(fig3)
         
-
     elif view == 'New tenancies by region':
         datalabels = st.radio('Data labels on bars', ['On', 'Off'], index=1, key='datalabels', horizontal=True)
         dates = filtered_data['Date'].unique()
         if len(dates) < 2:
             st.markdown('Single data point only')
-            #clean = data but drop Subcategory, Detail, Item, Newtenanciestime
             date = filtered_data['Date'].unique()[0]
             clean =data[data['Item'] == view]
             clean = clean.drop(columns=['Subcategory', 'Detail', 'Item', 'Newtenanciestime', 'Date'], axis=1)
-            #Date to string
             date = date.strftime('%d %B %Y')
-            #if string in Category contains Priority, change to Priority, else Total
             clean['Category'] = clean['Category'].str.contains('Priority')
             clean['Category'] = clean['Category'].replace(True, 'Priority')
             clean['Category'] = clean['Category'].replace(False, 'Total')
-            #print clean
-            #create Priority and Total columns for each Region
             clean = clean.pivot_table(index='Region', columns='Category', values='Value', aggfunc='sum')
-        
-            #create WA total row
             clean.loc['WA total'] = clean.sum()    
-
             clean['Priority %'] = clean['Priority'] / clean['Total'] * 100
-            #proportion priority to .1f
             clean['Priority %'] = clean['Priority %'].round(1)
-            #get data for item = Region need
-            region_need = source[source['Item'] == 'Region need']
-
+            region_need = Waitlist_breakdowns[Waitlist_breakdowns['Item'] == 'Region need']
             region_dates = region_need['Date'].unique()
-
-            #pick latest date
             latest_date = region_dates.max()
-            #filter data to only include latest date
             region_need = region_need[region_need['Date'] == latest_date]
-
-            #if category string contains Priority, change to Priority, else Total
             region_need['Category'] = region_need['Category'].str.contains('Priority')
             region_need['Category'] = region_need['Category'].replace(True, 'Priority')
             region_need['Category'] = region_need['Category'].replace(False, 'Total')
-            
-            #filter for Subcategory = Applications
             region_need = region_need[region_need['Subcategory'] == 'Applications']
-            #drop Subcategory, Detail, Item, Newtenanciestime, Date
             region_need = region_need.drop(columns=['Subcategory', 'Detail', 'Item', 'Newtenanciestime', 'Date'], axis=1)
             #pivot table
             region_need = region_need.pivot_table(index='Region', columns='Category', values='Value', aggfunc='sum')
@@ -1032,37 +984,26 @@ def waitlist_breakdowns():
             region_need['Priority %'] = region_need['Priority'] / region_need['Total'] * 100
             #proportion priority to .1f
             region_need['Priority %'] = region_need['Priority %'].round(1)
-            #merge clean and region_need
             clean = pd.merge(clean, region_need, on='Region', suffixes=('', ' waitlist'))
             clean[f'% housed - Priority'] = clean['Priority'] / clean['Priority waitlist'] * 100
             clean[f'% housed - Priority'] = clean[f'% housed - Priority'].round(1)
-
             clean[f'% housed - Total'] = clean['Total'] / clean['Total waitlist'] * 100
             clean[f'% housed - Total'] = clean[f'% housed - Total'].round(1)
-            # regionfigdata = clean but region as column not index
             regionfigdata = clean.reset_index()
             regionfig = go.Figure()
             regionfig.add_trace(go.Bar(x=regionfigdata['Region'], y=regionfigdata[f'% housed - Priority'], name=f'% housed - Priority'))
             regionfig.add_trace(go.Bar(x=regionfigdata['Region'], y=regionfigdata[f'% housed - Total'], name=f'% housed - Total'))
             regionfig.update_layout(barmode='group', yaxis=dict(title='%'), title_text = f'Percentage of waitlist at {latest_date} housed in 12months to to {date} - group by region')
-            #data labels inside top bar
             if datalabels == 'On':
                 regionfig.update_traces(texttemplate='%{y:.1f}', textposition='inside')
             st.plotly_chart(regionfig)
             regionlist = list(regionfigdata['Region'].unique())
-            # plot a version with region as traces and % housed categories as y groups
             housed = regionfigdata[['Region', '% housed - Priority', '% housed - Total']]
-            #transpose housed
             housed = housed.T
-            #reset index
             housed = housed.reset_index()
-            #row 0 as column names
             housed.columns = housed.iloc[0]
-            #drop row 0
             housed = housed.drop(0)
-            #rename Region to Category
             housed = housed.rename(columns={'Region': 'Category'})
-
             regionfig2 = go.Figure()
             for region in regionlist:
                 regionfig2.add_trace(go.Bar(x=housed['Category'], y=housed[region], name=region))
@@ -1070,11 +1011,7 @@ def waitlist_breakdowns():
             if datalabels == 'On':
                 regionfig2.update_traces(texttemplate='%{y:.1f}', textposition='inside')
             st.plotly_chart(regionfig2)
-
-
-
             st.write(housed)
-
             st.write(clean)
         else:
             for region in filtered_data['Region'].unique():
@@ -1180,35 +1117,24 @@ def waitlist_breakdowns():
     
 def show_update_log():
     update_log = pd.read_excel('DATA/SOURCE DATA/update_log.xlsx')
-
     st.write('Update Log')
     st.table(update_log)
     return
 
 def SHS_reasons():
-    # Read the data
-    df = pd.read_csv('DATA/PROCESSED DATA/SHS/Long_Form/SHS_Reasons_Long_Form.csv') 
-
-    # Data preprocessing
-    df['MEASURE'] = df['MEASURE'].fillna('Persons')  # Replace NaN in MEASURE with 'Persons'
-    df = df.rename(columns={'REASON FOR SEEKING ASSISTANCE': 'REASON'})  # Rename column for ease of use
-
+    df = pd.read_csv(SHSReasonsdf)
+    df['MEASURE'] = df['MEASURE'].fillna('Persons')
+    df = df.rename(columns={'REASON FOR SEEKING ASSISTANCE': 'REASON'})
     df_latest_date = df[df['DATE'] == df['DATE'].max()]
     latest_date = df_latest_date['DATE'].max()
     df_latest_date = df_latest_date[df_latest_date['MEASURE'] == 'Persons']
     df_latest_total = df_latest_date[df_latest_date['REASON'] == 'Total clients']
-    #drop columns REASON, MONTH, GROUP
     df_latest_total = df_latest_total.drop(columns=['REASON', 'MONTH', 'GROUP', 'MEASURE', 'DATE'])
     df_latest_reasons = df_latest_date[df_latest_date['REASON'] != 'Total clients']
-    #drop columns MONTH, GROUP, MEASURE
     df_latest_reasons = df_latest_reasons.drop(columns=['MONTH', 'GROUP', 'MEASURE', 'DATE'])
-    #join df_latest_total to df_latest_reasons on DATE, STATE, MEASURE
     df_latest_reasons = df_latest_reasons.merge(df_latest_total, on=['STATE'])
-    #rename VALUE_x = VALUE, Value_y = Total clients
     df_latest_reasons = df_latest_reasons.rename(columns={'VALUE_x': 'VALUE', 'VALUE_y': 'Total clients'})
-    #calculate proportion
     df_latest_reasons['proportion'] = (df_latest_reasons['VALUE'] / df_latest_reasons['Total clients'])*100
-    #drop Total clients
     df_latest_reasons = df_latest_reasons.drop(columns=['Total clients'])
     nat_reasons = df_latest_reasons[df_latest_reasons['STATE'] == 'National']
     nat_reasons = nat_reasons.groupby('REASON').sum().reset_index().sort_values(by='proportion', ascending=False)
@@ -1216,106 +1142,64 @@ def SHS_reasons():
     wa_reasons = df_latest_reasons[df_latest_reasons['STATE'] == 'WA']
     wa_reasons = wa_reasons.groupby('REASON').sum().reset_index().sort_values(by='VALUE', ascending=False)
     top_reasons_wa = wa_reasons['REASON'].head(3).tolist()
-    #combine top reasons for WA and National
     top_reasons = top_reasons + top_reasons_wa
     top_reasons = list(dict.fromkeys(top_reasons))
-
-
-    #drop df_latest_reasons rows where REASON not in top_reasons
     df_latest_reasons = df_latest_reasons[df_latest_reasons['REASON'].isin(top_reasons)]
     df_latest_reasons_prop = df_latest_reasons
-    #drop VALUE
     df_latest_reasons_prop = df_latest_reasons_prop.drop(columns=['VALUE'])
     df_latest_reasons_count = df_latest_reasons
-    #drop proportion
     df_latest_reasons_count = df_latest_reasons_count.drop(columns=['proportion'])
-
-    #pivot so each STATE is a column
     df_top_proportion = df_latest_reasons_prop.pivot_table(index=['STATE'], columns='REASON', values='proportion').reset_index()
-
-
-    #latest date as mmmm yyyy
     latest_date = pd.to_datetime(latest_date, format='%Y-%m-%d').strftime('%B %Y')
-
-    st.markdown(f'Source: <a href="https://www.aihw.gov.au/reports/homelessness-services/specialist-homelessness-services-monthly-data/data">Australian Institute of Health and Welfare - Specialist homelessness services, monthly data - last updated {latest_date} </a>', unsafe_allow_html=True)
-
+    st.markdown(f'Source: <a href="{SHSSourceURL}">{SHSSourceText} - last updated {latest_date} </a>', unsafe_allow_html=True)
     states = st.multiselect('Show', ['National', 'WA', 'NSW', 'Vic', 'Qld', 'SA', 'Tas', 'NT', 'ACT'], default=['National', 'WA', 'NSW', 'Vic', 'Qld', 'SA', 'Tas', 'NT', 'ACT'])
-
-    #for each reason, category bar chart - proportion on y, state on x
     fig = go.Figure()
-    #filter df_top_proportion by states
     df_top_proportion = df_top_proportion[df_top_proportion['STATE'].isin(states)]
     for reason in top_reasons:
         fig.add_trace(go.Bar(x=df_top_proportion['STATE'], y=df_top_proportion[reason], name=reason))
     fig.update_layout(barmode='group', xaxis={'categoryorder':'array', 'categoryarray': states})
     fig.update_layout(title={'text': 'Proportion of clients reporting a top reason for seeking assistance', 'x': 0.5, 'xanchor': 'center'})
     fig.update_layout(legend={'title': 'Reason for Seeking Assistance'})
-    #y label % of clients
     fig.update_layout(yaxis={'title': '% of clients'})
-
     st.plotly_chart(fig)
     return
 
 def SHS_client_groups():
-    df = pd.read_csv('DATA/PROCESSED DATA/SHS/SHS_Client_Groups.csv')
-    #column names to uppercase
+    df = pd.read_csv(SHSClientGroupsdf)
     df.columns = df.columns.str.upper()
     if 'MONTH' in df.columns:
         df['DATE'] = '20' + df['MONTH'].str[3:5] + '-' + df['MONTH'].str[0:3] + '-01'
         df['DATE'] = pd.to_datetime(df['DATE'], format='%Y-%b-%d')
         df['DATE'] = df['DATE'] + pd.offsets.MonthEnd(0)
-    population = pd.read_csv('DATA/PROCESSED DATA/Population/Population_State_Total_monthly.csv')
+    population = pd.read_csv(PopulationStateMonthlydf)
     population['DATE'] = pd.to_datetime(population['DATE'], format='%d/%m/%Y', dayfirst=True)
-    #sort date ascending
     population = population.sort_values(by='DATE', ascending=True)
     regions = df.columns[3:12]
-    print(regions)
-    #Date is yyyy-mm-dd
     df['DATE'] = pd.to_datetime(df['DATE'], format='%Y-%m-%d', errors='coerce')
     df = df.sort_values(by='DATE', ascending=True)
-
     latest_date = df['DATE'].max()
-
-
-
     latest_date = pd.to_datetime(latest_date, format='%Y-%m-%d').strftime('%B %Y')
     df_tot = df[df['SEX'] == 'Total']
-    #join df and population on DATE
     df_tot = pd.merge(df_tot, population, on='DATE', how='left')
-    #forward fill any Nan columns
     df_tot = df_tot.fillna(method='ffill')
-
-    st.markdown(f'Source: <a href="https://www.aihw.gov.au/reports/homelessness-services/specialist-homelessness-services-monthly-data/data">Australian Institute of Health and Welfare - Specialist homelessness services, monthly data - last updated {latest_date} </a>', unsafe_allow_html=True)
-
-
-
+    st.markdown(f'Source: <a href="{SHSSourceURL}">{SHSSourceText} - last updated {latest_date} </a>', unsafe_allow_html=True)
     per10k ={}
-
     for region in regions:
         region_per_10k = f'{region}_PER_10k'
         per10k[region] = region_per_10k
-        
     propnat = {}
     for region in regions:
         region_prop_nat = f'{region}_PROPORTION_OF_NATIONAL'
         propnat[region] = region_prop_nat
-
     groups = df['CLIENT GROUP'].unique()
     groups = groups.tolist()
-
     col1, col2, col3 = st.columns(3)
     with col1:
         view = st.radio('Select view', ['Number of clients', 'Number of clients per 10,000 people'], index=0)
     if view == 'Number of clients per 10,000 people':
-        #remove 'Number of nights in short-term/emergency accommodation' from groups
         groups.remove('Number of nights in short-term/emergency accommodation')
-
-
-
-
     with col2:
         region = st.selectbox('Select region', regions, index=3)
-
     group = st.selectbox('Select client group', groups, index=7)
     df = df[df['CLIENT GROUP'] == group]
     df_tot = df_tot[df_tot['CLIENT GROUP'] == group]
@@ -1353,14 +1237,14 @@ def SHS_client_groups():
     return    
 
 def ROGS_sector():
-    df = pd.read_csv('DATA/PROCESSED DATA/ROGS/ROGS G.csv', encoding='latin-1')
+    df = pd.read_csv(ROGSSectordf, encoding='latin-1')
     #sort year ascending
     df = df.sort_values(by='Year', ascending=True)
     df['Year'] = df['Year'].astype(str)
 
-    st.markdown(f'Source: <a href="https://www.pc.gov.au/research/ongoing/report-on-government-services/2022/housing-and-homelessness">Report on Government Services 2023, Part G, Sector Overview</a>', unsafe_allow_html=True)
+    st.markdown(f'Source: <a href="{ROGSSectorSourceURL}">{ROGSSectorSourceText}</a>', unsafe_allow_html=True)
     col1, col2, col3 = st.columns(3)
-    Population = pd.read_csv('DATA/PROCESSED DATA/Population/Population_State_Sex_Age_to_65+.csv')
+    Population = pd.read_csv(PopulationStateSexAge65df)
     #Population filter for All ages, Total, mm=06
     Population['Date'] = pd.to_datetime(Population['Date'], format='%d/%m/%y', dayfirst=True, errors='coerce')
 
@@ -1528,9 +1412,6 @@ def ROGS_sector():
             df= df[df['Description2'] != 'Non-Indigenous']
             df= df[df['Description2'] != 'Dependent children in income units']
             
-            
-
-
             col1, col2 = st.columns(2)
             df = df[df['Description1'] == 'Income units receiving CRA']
             with col1:
@@ -1552,7 +1433,6 @@ def ROGS_sector():
                         fig.update_traces(texttemplate='%{y:.2s}', textposition='inside')
                     st.plotly_chart(fig)
                 if select_sector == 'Geographic location':
-                    
                     #select year
                     with col1:
                         select_years_geo = st.multiselect('Select year', df['Year'].unique(), default=df['Year'].unique())
@@ -1682,18 +1562,16 @@ def ROGS_sector():
     return
       
 def ROGS_housing():
-    st.markdown(f'Source: <a href="https://www.pc.gov.au/ongoing/report-on-government-services/2023/housing-and-homelessness/housing">Report on Government Services 2023, Part G, Section 18 - Housing</a>', unsafe_allow_html=True)
+    st.markdown(f'Source: <a href="{ROGSHousingSourceURL}">{ROGSHousingSourceText}</a>', unsafe_allow_html=True)
 
-    rogshousing = pd.read_csv("DATA/SOURCE DATA/ROGS and SHS/ROGS G18.csv", encoding='latin-1')
+    rogshousing = pd.read_csv(ROGSHousingdf, encoding='latin-1')
 
-    #remove Measure values Descriptive data, Survey response rates, Self-reported benefits of living in social housing - Public housing, Self-reported benefits of living in social housing - SOMIH, Self-reported benefits of living in social housing - Community housing
     rogshousing = rogshousing[rogshousing['Measure'] != 'Descriptive data']
     rogshousing = rogshousing[rogshousing['Measure'] != 'Survey response rates']
     rogshousing = rogshousing[rogshousing['Measure'] != 'Self-reported benefits of living in social housing - Public housing']
     rogshousing = rogshousing[rogshousing['Measure'] != 'Self-reported benefits of living in social housing - SOMIH']
     rogshousing = rogshousing[rogshousing['Measure'] != 'Self-reported benefits of living in social housing - Community housing']
 
-    #sort Year ascending
     rogshousing = rogshousing.sort_values(by='Year', ascending=True)
 
     col1, col2 = st.columns(2)
@@ -1739,8 +1617,6 @@ def ROGS_housing():
     else:
         regions = ['Aust', 'WA', 'NSW', 'Vic', 'Qld', 'SA','Tas', 'ACT', 'NT']
 
-
-
     fig=go.Figure()
 
     if chart_type == 'Line chart':
@@ -1757,12 +1633,11 @@ def ROGS_housing():
     return
 
 def ROGS_homelessness():
-    st.markdown(f'Source: <a href="https://www.pc.gov.au/ongoing/report-on-government-services/2023/housing-and-homelessness/homelessness-services">Report on Government Services 2023, Part G, Section 19 - Homelessness Services</a>', unsafe_allow_html=True)
+    st.markdown(f'Source: <a href="{ROGSHomelessnessSourceURL}">{ROGSHomelessnessSourceText}</a>', unsafe_allow_html=True)
 
     col1, col2 = st.columns(2)
-    
 
-    df = pd.read_csv('DATA/PROCESSED DATA/ROGS/ROGS G19.csv', encoding='latin-1')
+    df = pd.read_csv(ROGSHomelessnessdf, encoding='latin-1')
     #sort year ascending
     df = df.sort_values(by='Year', ascending=True)
     df['Year'] = df['Year'].astype(str)
@@ -1882,21 +1757,14 @@ def ROGS_homelessness():
         for region in regions:
             fig.add_trace(go.Bar(x=df['Year'], y=df[region], name=region))
         fig.update_layout(barmode='group', title='Homelessness; by homelessness operational group', xaxis_title="Year", yaxis_title=yunits)
-        
-
         st.plotly_chart(fig)
-
     return
 
 def external_resources():
     external = pd.read_excel('assets/External.xlsx', sheet_name='Sheet1')
-
-    #button that points to , text = By-name list
     st.markdown(f'<h3><a href ="https://www.endhomelessnesswa.com/bynamelist-datapage">Visit by-name list site </a></h3>', unsafe_allow_html=True)
-
     for i in external.index:
         file = 'assets/' + external['File'][i]
-        #display file - png 
         st.markdown(f'<h3>2023 housing affordability charts from Anglicare WA</h3>', unsafe_allow_html=True)
         st.markdown(f'<h5>{external["caption"][i]}</h5>', unsafe_allow_html=True)
         st.image(file, use_column_width=True)
@@ -1904,28 +1772,19 @@ def external_resources():
     return
 
 def airbnb_wa():
-    df_wa_total = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_WAtotals.csv')
+    df_wa_total = pd.read_csv(AirbnbWATotaldf)
     df_wa_total['date'] = pd.to_datetime(df_wa_total['date'], format='%Y-%m-%d', errors='coerce')
     df_wa_total = df_wa_total.sort_values(by='date', ascending=True)
-    #rename count_listings to count
     df_wa_total = df_wa_total.rename(columns={'count_listings': 'count'})
-    #date to string
     df_wa_total['date'] = df_wa_total['date'].astype(str)
-    df_geo = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_allgeo.csv')
-    #rename SA2_NAME_2016 to SA2, SA3_NAME_2016 to SA3, SA4_NAME_2016 to SA4
-    df_geo = df_geo.rename(columns={'SA2_NAME_2016':'SA2', 'SA3_NAME_2016':'SA3', 'SA4_NAME_2016':'SA4', 'id_count': 'count'})
-
     fig = go.Figure()
     for room_type in df_wa_total['room_type'].unique():
         df_room_type = df_wa_total[df_wa_total['room_type'] == room_type]
         fig.add_trace(go.Bar(x=df_room_type['date'].astype(str), y=df_room_type['count'], name=room_type))
     fig.update_layout(barmode='stack', xaxis={'categoryorder':'category ascending'})
     fig.update_layout(title='Number of Airbnb listings in WA by type', xaxis_title='', yaxis_title='Number of listings')
-    #decrease bottom margin
     fig.update_layout(margin=dict(b=0))
     st.plotly_chart(fig)
-
-    #plot median price
     fig2 = go.Figure()
     for room_type in df_wa_total['room_type'].unique():
         df_room_type = df_wa_total[df_wa_total['room_type'] == room_type]
@@ -1933,8 +1792,6 @@ def airbnb_wa():
     fig2.update_layout(barmode='group', xaxis={'categoryorder':'category ascending'})
     fig2.update_layout(title='Median price of Airbnb listings in WA', xaxis_title='', yaxis_title='Median price ($)')
     st.plotly_chart(fig2)
-
-    #plot mean price
     fig3 = go.Figure()
     for room_type in df_wa_total['room_type'].unique():
         df_room_type = df_wa_total[df_wa_total['room_type'] == room_type]
@@ -1942,8 +1799,6 @@ def airbnb_wa():
     fig3.update_layout(barmode='group', xaxis={'categoryorder':'category ascending'})
     fig3.update_layout(title='Mean price of Airbnb listings in WA', xaxis_title='', yaxis_title='Mean price ($)')
     st.plotly_chart(fig3)
-
-    #plot median availability
     fig4 = go.Figure()
     for room_type in df_wa_total['room_type'].unique():
         df_room_type = df_wa_total[df_wa_total['room_type'] == room_type]
@@ -1951,7 +1806,6 @@ def airbnb_wa():
     fig4.update_layout(barmode='group', xaxis={'categoryorder':'category ascending'})
     fig4.update_layout(title='Median availability of Airbnb listings in WA', xaxis_title='', yaxis_title='Median availability (days)')
     st.plotly_chart(fig4)
-    #plot mean availability
     fig5 = go.Figure()
     for room_type in df_wa_total['room_type'].unique():
         df_room_type = df_wa_total[df_wa_total['room_type'] == room_type]
@@ -1959,30 +1813,15 @@ def airbnb_wa():
     fig5.update_layout(barmode='group', xaxis={'categoryorder':'category ascending'})
     fig5.update_layout(title='Mean availability of Airbnb listings in WA', xaxis_title='', yaxis_title='Mean availability (days)')
     st.plotly_chart(fig5)
-
     return
 
 def airbnb_geo():
-    df_wa_total = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_WAtotals.csv')
-    df_wa_total['date'] = pd.to_datetime(df_wa_total['date'], format='%Y-%m-%d', errors='coerce')
-    df_wa_total = df_wa_total.sort_values(by='date', ascending=True)
-    #rename count_listings to count
-    df_wa_total = df_wa_total.rename(columns={'count_listings': 'count'})
-    #date to string
-    df_wa_total['date'] = df_wa_total['date'].astype(str)
-    df_geo = pd.read_csv('DATA/PROCESSED DATA/Market and economy/Airbnb_allgeo.csv')
-    #rename SA2_NAME_2016 to SA2, SA3_NAME_2016 to SA3, SA4_NAME_2016 to SA4
+    df_geo = pd.read_csv(AirbnbGeodf)
     df_geo = df_geo.rename(columns={'SA2_NAME_2016':'SA2', 'SA3_NAME_2016':'SA3', 'SA4_NAME_2016':'SA4', 'id_count': 'count'})
-
     st.markdown(f'#### Geographic filters')
-
-
-
     select_geo = st.radio('Select geography filter type:', ['Census areas (multi-level)', 'Federal electorate', 'LGA'], index=0)
     col1, col2, col3 = st.columns(3)
-
     if select_geo == 'Census areas (multi-level)':
-
         with col1:
             SA4 = st.multiselect('Select SA4', df_geo['SA4'].unique())
             if SA4:
@@ -1997,7 +1836,6 @@ def airbnb_geo():
                     df_geo_fil = df_geo[df_geo['SA3'].isin(SA3)]
                     if len(SA3) == len(df_geo['SA3'].unique()):
                         df_geo_fil = df_geo_fil.groupby(['date', 'room_type', 'SA4']).agg({'count': 'sum', 'price_mean': 'mean', 'availability_365_mean': 'mean', 'price_median': 'median', 'availability_365_median': 'median'}).reset_index()
-
         with col3:
             if SA3:
                 SA2 = st.multiselect('Select SA2', df_geo_fil['SA2'].unique(), default=df_geo_fil['SA2'].unique())
@@ -2006,23 +1844,18 @@ def airbnb_geo():
                 SA2 = st.multiselect('Select SA2', df_geo['SA2'].unique())
                 if SA2:
                     df_geo_fil = df_geo[df_geo['SA2'].isin(SA2)]
-                    #if all selected, groupby date, room_type, SA3, sum count, mean price, mean availability_365, median price, median availability_365
                     if len(SA2) == len(df_geo['SA2'].unique()):
                         df_geo_fil = df_geo_fil.groupby(['date', 'room_type', 'SA3']).agg({'count': 'sum', 'price_mean': 'mean', 'availability_365_mean': 'mean', 'price_median': 'median', 'availability_365_median': 'median'}).reset_index()
-
     elif select_geo == 'Federal electorate':
         fed_electorate = st.multiselect('Select federal electorate', df_geo['electorate'].unique())
         if fed_electorate:
             df_geo_fil = df_geo[df_geo['electorate'].isin(fed_electorate)]
             df_geo_fil = df_geo_fil.groupby(['date', 'room_type', 'electorate']).agg({'count': 'sum', 'price_mean': 'mean', 'availability_365_mean': 'mean', 'price_median': 'median', 'availability_365_median': 'median'}).reset_index()
-
     elif select_geo == 'LGA':
         LGA = st.multiselect('Select LGA', df_geo['lgaregion'].unique())
         if LGA:
             df_geo_fil = df_geo[df_geo['lgaregion'].isin(LGA)]
             df_geo_fil = df_geo_fil.groupby(['date', 'room_type', 'lgaregion']).agg({'count': 'sum', 'price_mean': 'mean', 'availability_365_mean': 'mean', 'price_median': 'median', 'availability_365_median': 'median'}).reset_index()
-
-
     try:
         room_type = st.multiselect('Select room type', df_geo_fil['room_type'].unique(), default=df_geo_fil['room_type'].unique())
         if room_type:
@@ -2031,23 +1864,14 @@ def airbnb_geo():
         room_type = st.multiselect('Select room type', df_geo['room_type'].unique(), default=df_geo['room_type'].unique())
         if room_type:
             df_geo_fil = df_geo[df_geo['room_type'].isin(room_type)]
-        
     fig = go.Figure()
-    #hovertext is sum of all count for date, room_type
-
     for room_type in df_geo_fil['room_type'].unique():
-        
         df_room_type = df_geo_fil[df_geo_fil['room_type'] == room_type]
         fig.add_trace(go.Bar(x=df_geo_fil['date'], y=df_geo_fil['count'], name=room_type))
     fig.update_layout(barmode='stack', xaxis={'categoryorder':'category ascending'})
-
-    fig.update_layout(title='Number of Airbnb listings in area by type', xaxis_title='', yaxis_title='Number of listings')
-    #decrease bottom margin
-    fig.update_layout(margin=dict(b=0))
+    fig.update_layout(title='Number of Airbnb listings in area by type', xaxis_title='', yaxis_title='Number of listings',margin=dict(b=0))
     st.markdown(f'*Hover values over bars in geographic filtered chart do not currently reflect single total for date, room type - currently showing multiple points for each suburb in area, to be corrected*')
     st.plotly_chart(fig)
-    
-    #plot median price
     fig2 = go.Figure()
     for room_type in df_geo_fil['room_type'].unique():
         df_room_type = df_geo_fil[df_geo_fil['room_type'] == room_type]
@@ -2055,8 +1879,6 @@ def airbnb_geo():
     fig2.update_layout(barmode='group', xaxis={'categoryorder':'category ascending'})
     fig2.update_layout(title='Median price of Airbnb listings in area', xaxis_title='', yaxis_title='Median price ($)')
     st.plotly_chart(fig2)
-
-    #plot mean price
     fig3 = go.Figure()
     for room_type in df_geo_fil['room_type'].unique():
         df_room_type = df_geo_fil[df_geo_fil['room_type'] == room_type]
@@ -2064,8 +1886,6 @@ def airbnb_geo():
     fig3.update_layout(barmode='group', xaxis={'categoryorder':'category ascending'})
     fig3.update_layout(title='Mean price of Airbnb listings in area', xaxis_title='', yaxis_title='Mean price ($)')
     st.plotly_chart(fig3)
-
-    #plot median availability
     fig4 = go.Figure()
     for room_type in df_geo_fil['room_type'].unique():
         df_room_type = df_geo_fil[df_geo_fil['room_type'] == room_type]
@@ -2073,7 +1893,6 @@ def airbnb_geo():
     fig4.update_layout(barmode='group', xaxis={'categoryorder':'category ascending'})
     fig4.update_layout(title='Median availability of Airbnb listings in area', xaxis_title='', yaxis_title='Median availability (days)')
     st.plotly_chart(fig4)
-    #plot mean availability
     fig5 = go.Figure()
     for room_type in df_geo_fil['room_type'].unique():
         df_room_type = df_geo_fil[df_geo_fil['room_type'] == room_type]
