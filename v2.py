@@ -43,45 +43,6 @@ def home():
         show_update_log()
     return
 
-def sidebar():
-    goto = st.sidebar.selectbox('Select page', ['Waitlist', 'ROGS', 'SHS monthly data', 'Airbnb', 'Census', 'External resources', 'Update log', 'User guide'])
-    if goto == 'Waitlist':
-        Waitlist_select = st.sidebar.selectbox('Select view', ['Latest data', 'Overall trend', 'Breakdowns'])
-        if Waitlist_select == 'Latest data':
-            waitlist_latest()
-        elif Waitlist_select == 'Overall trend':
-            waitlist_trendcharts()
-        elif Waitlist_select == 'Breakdowns':
-            waitlist_breakdowns()
-            
-        
-    elif goto == 'External resources':
-        external_resources()
-    elif goto == 'ROGS':
-        ROGS_select = st.sidebar.selectbox('Select ROGS page', ['Sector overview', 'Housing', 'Homelessness'])
-        if ROGS_select == 'Sector overview':
-            ROGS_sector()
-            sidebar()
-        elif ROGS_select == 'Housing':
-            ROGS_housing()
-        elif ROGS_select == 'Homelessness':
-            ROGS_homelessness()
-    elif goto == 'SHS monthly data':
-        SHS_select = st.sidebar.selectbox('Select SHS page', ['Client groups', 'Reasons for seeking assistance'])
-        sidebar()
-        if SHS_select == 'Client groups':
-            SHS_client_groups()
-            sidebar()
-        elif SHS_select == 'Reasons for seeking assistance':
-            SHS_reasons()
-    elif goto == 'Airbnb':
-        Airbnb_select = st.sidebar.selectbox('Select Airbnb page', ['WA total - by room type', 'Geographic filters'])
-        if Airbnb_select == 'WA total - by room type':
-            airbnb_wa()
-        elif Airbnb_select == 'Geographic filters':
-            airbnb_geo()
-    return
-
 def waitlist_latest():
 
   Waitlist_trend_latest = pd.read_csv('DATA/PROCESSED DATA/PUBLIC HOUSING/Waitlist_trend_latest.csv')
