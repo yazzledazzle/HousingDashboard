@@ -1720,9 +1720,8 @@ def ROGS_homelessness():
         fig = go.Figure()
         for region in regions:
             fig.add_trace(go.Bar(x=dfRE['Year'], y=dfRE[region], name=region))
-        fig.update_layout(barmode='group', title='Recurrent expenditure - homelessness services', xaxis_title="Year", yaxis_title=ytitle)
+        fig.update_layout(barmode='group', title=charttitle, xaxis_title="Year", yaxis_title=ytitle)
         st.plotly_chart(fig)
-
 
     if select_measure == "Unmet need":
         filter1 = st.selectbox('Select filter', ['Accommodation services', 'Services other than accommodation'], index=0, key='filter1')
