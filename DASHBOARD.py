@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-import numpy as np
+import openpyxl
+import os
 
 Waitlist_latestdf = 'DATA/PROCESSED DATA/PUBLIC HOUSING/Waitlist_trend_latest.csv'
 Waitlist_trend_longdf = 'DATA/PROCESSED DATA/PUBLIC HOUSING/Waitlist_trend_long.csv'
@@ -14,8 +15,10 @@ SHSReasonsdf = 'DATA/PROCESSED DATA/SHS/Long_Form/SHS_Reasons_Long_Form.csv'
 SHSClientGroupsdf = 'DATA/PROCESSED DATA/SHS/SHS_Client_Groups.csv'
 PopulationStateSexAge65df = 'DATA/PROCESSED DATA/Population/Population_State_Sex_Age_to_65+.csv'
 PopulationStateMonthlydf = 'DATA/PROCESSED DATA/Population/Population_State_Total_monthly.csv'
-AirbnbWATotaldf = 'DATA/PROCESSED DATA/Market and economy/Airbnb_WAtotals.csv'
-AirbnbGeodf = 'DATA/PROCESSED DATA/Market and economy/Airbnb_allgeo.csv'
+AirbnbWATotaldf = 'DATA/PROCESSED DATA/Airbnb/Airbnb_WAtotals.csv'
+AirbnbGeodf = 'DATA/PROCESSED DATA/Airbnb/Airbnb_allgeo.csv'
+PopulationNewFile = 'DATA/SOURCE DATA/Population/Population.csv'
+updatelogfile = 'DATA/SOURCE DATA/update_log.xlsx'
 
 waitlist_sourceURL = "https://www.parliament.wa.gov.au/Parliament/Pquest.nsf/(SearchResultsAllDesc)?SearchView&Query=(Housing%20waitlist)&Start=1&SearchOrder=4&SearchMax=1000"
 waitlist_sourceText = "Parliamentary Questions"
@@ -29,11 +32,9 @@ ROGSSectorSourceText = "Report on Government Services 2024, Part G - Housing and
 SHSSourceURL = "https://www.aihw.gov.au/reports/homelessness-services/specialist-homelessness-services-monthly-data/data"
 SHSSourceText = "Australian Institute of Health and Welfare - Specialist homelessness services, monthly data"
 
-
-
 def home():
     st.set_page_config(layout="wide")
-    goto = st.sidebar.selectbox('Select page', ['Waitlist', 'ROGS', 'SHS monthly data', 'Airbnb', 'Census', 'External resources', 'User guide'], index=0)
+    goto = st.sidebar.selectbox('Select page', ['Waitlist', 'ROGS', 'SHS monthly data', 'Airbnb', 'Census', 'External content', 'Upload data or external content'], index=0)
     if goto == 'Waitlist':
         Waitlist_select = st.sidebar.selectbox('Select view', ['Latest data', 'Overall trend', 'Breakdowns'])
         if Waitlist_select == 'Latest data':
@@ -42,7 +43,7 @@ def home():
             waitlist_trendcharts()
         elif Waitlist_select == 'Breakdowns':
             waitlist_breakdowns()  
-    elif goto == 'External resources':
+    elif goto == 'External content':
         external_resources()
     elif goto == 'ROGS':
         ROGS_select = st.sidebar.selectbox('Select ROGS page', ['Sector overview', 'Housing', 'Homelessness'])
@@ -64,8 +65,15 @@ def home():
             airbnb_wa()
         elif Airbnb_select == 'Geographic filters':
             airbnb_geo()
-    elif goto == 'User guide':
+    elif goto == 'Upload data or external content':
+        upload_data()
         show_update_log()
+    return
+
+def data_updates():
+    #Quick setup approach - will use API call to get latest ABS population data on or after the 21st of each quarter ending month.
+    if pd.to_datetime('today').month == 3 | 6 | 9 | 12 and pd.to_datetime('today').day >= 21:
+        import_population_data()
     return
 
 def waitlist_latest():
@@ -1797,10 +1805,12 @@ def external_resources():
     external = pd.read_excel('assets/External.xlsx', sheet_name='Sheet1')
     st.markdown(f'<h3><a href ="https://www.endhomelessnesswa.com/bynamelist-datapage">Visit by-name list site </a></h3>', unsafe_allow_html=True)
     for i in external.index:
-        file = 'assets/' + external['File'][i]
-        st.markdown(f'<h3>2023 housing affordability charts from Anglicare WA</h3>', unsafe_allow_html=True)
         st.markdown(f'<h5>{external["caption"][i]}</h5>', unsafe_allow_html=True)
-        st.image(file, use_column_width=True)
+        try:
+            file = 'assets/' + external['File'][i]
+            st.image(file, use_column_width=True)
+        except:
+            pass
         st.markdown(f'<a href="{external["Reference link"][i]}">Source: {external["Reference text"][i]}</a>', unsafe_allow_html=True)
     return
 
@@ -1935,6 +1945,525 @@ def airbnb_geo():
     st.plotly_chart(fig5)
     return
 
+def delete_source_file(file):
+    if os.path.exists(file):
+        os.remove(file)
+        return
+    else:
+        return
+
+def update_log(latest_date, update_date, dataset):
+    try:
+        update_log = pd.read_excel(updatelogfile)
+    except:
+        update_log = pd.DataFrame(columns=['Dataset', 'Latest data point', 'Date last updated'])
+    new_row = pd.DataFrame({'Dataset': [dataset], 'Latest data point': [latest_date], 'Date last updated': [update_date]})
+    update_log = pd.concat([update_log, new_row], ignore_index=True)
+    update_log['Latest data point'] = pd.to_datetime(update_log['Latest data point'], format='%d/%m/%Y')
+    update_log['Date last updated'] = pd.to_datetime(update_log['Date last updated'], format='%d/%m/%Y')
+    update_log = update_log.sort_values(by=['Latest data point', 'Date last updated'], ascending=False).drop_duplicates(subset=['Dataset'], keep='first')
+    update_log['Latest data point'] = update_log['Latest data point'].dt.strftime('%d/%m/%Y')
+    update_log['Date last updated'] = update_log['Date last updated'].dt.strftime('%d/%m/%Y')                            
+    update_log.to_excel(updatelogfile, index=False)
+    book = openpyxl.load_workbook(updatelogfile)
+    sheet = book.active
+    for column_cells in sheet.columns:
+        length = max(len(as_text(cell.value)) for cell in column_cells)
+        sheet.column_dimensions[column_cells[0].column_letter].width = length
+    book.save(updatelogfile)
+    book.close()
+    return
+
+def upload_data():
+    select_data_to_upload = st.selectbox('Select the data/content to upload', ['ROGS', 'SHS', 'Airbnb', 'Waitlist - WA total', 'Waitlist - breakdowns', 'Images or links'])
+    if select_data_to_upload == 'SHS':
+        st.markdown(f'**Step 1:**')
+        st.markdown(f'Download **Data Tables** from Government site to your computer - <a href="https://www.aihw.gov.au/reports/homelessness-services/specialist-homelessness-services-monthly-data/data"> go here</a> and click DOWNLOAD button', unsafe_allow_html=True)
+        st.markdown(f'**Step 2:**')
+        SHSnew = st.file_uploader("Select downloaded file")
+        if SHSnew is not None:
+            source_file = pd.ExcelFile(SHSnew)
+            import_shs_data(source_file)
+    if select_data_to_upload == 'ROGS':
+        st.markdown(f'**Step 1:**')
+        st.markdown(f'Download **CSV** files requiring update, under Part G at <a href="https://www.pc.gov.au/ongoing/report-on-government-services">this website</a>', unsafe_allow_html=True)
+        st.markdown(f'**Step 2:**')
+        st.markdown(f'Upload files below, ensuring you select correct file for Sector Overview, Housing and Homelessness. If any do not require update, you do not need to upload them.', unsafe_allow_html=True)
+        ROGSsectornew = st.file_uploader("Select Sector Overview file")
+        ROGShousingnew = st.file_uploader("Select Housing file")
+        ROGSHomelessnessnew = st.file_uploader("Select Homelessness file")
+        if ROGSsectornew is not None:
+            ROGSsector = pd.read_csv(ROGSsectornew, encoding='latin-1')
+            ROGSsector.to_csv(ROGSSectordf, index=False)
+            latest_date = ROGSsector['Year'].max()
+            latest_date = latest_date[-2:]
+            latest_date = f'30/06/20{latest_date}'
+            latest_date = pd.to_datetime(latest_date, format='%d/%m/%Y', dayfirst=True)
+            update_date = pd.to_datetime('today').strftime('%d/%m/%Y')
+            update_log(latest_date, update_date, 'ROGS Sector Overview')
+        if ROGShousingnew is not None:
+            ROGShousing = pd.read_csv(ROGShousingnew, encoding='latin-1')
+            ROGShousing.to_csv(ROGSHousingdf, index=False)
+            latest_date = ROGShousing['Year'].max()
+            latest_date = latest_date[-2:]
+            latest_date = f'30/06/20{latest_date}'
+            latest_date = pd.to_datetime(latest_date, format='%d/%m/%Y', dayfirst=True)
+            update_date = pd.to_datetime('today').strftime('%d/%m/%Y')
+            update_log(latest_date, update_date, 'ROGS Housing')
+        if ROGSHomelessnessnew is not None:
+            ROGSHomelessness = pd.read_csv(ROGSHomelessnessnew, encoding='latin-1')
+            ROGSHomelessness.to_csv(ROGSHomelessnessdf, index=False)
+            latest_date = ROGSHomelessness['Year'].max()
+            latest_date = latest_date[-2:]
+            latest_date = f'30/06/20{latest_date}'
+            latest_date = pd.to_datetime(latest_date, format='%d/%m/%Y', dayfirst=True)
+            update_date = pd.to_datetime('today').strftime('%d/%m/%Y')
+            update_log(latest_date, update_date, 'ROGS Homelessness')
+    if select_data_to_upload == 'Airbnb':
+        st.markdown(f'**Step 1:**')
+        st.markdown(f'Download **listings.csv** under **Western Australia** files from <a href="http://insideairbnb.com/get-the-data.html">this website</a> - Western Australia is towards the bottom of the long page; press **Ctrl** + **F** keys and type in "Western Au" to jump there', unsafe_allow_html=True)
+        st.markdown(f'**Step 2:**')
+        filename = st.date_input('Enter date of data from Inside Airbnb website, which is listed above the download links', format="YYYY-MM-DD")
+        filename = filename.strftime('%Y-%m-%d')
+        st.markdown(f'**Step 3:**')
+        airbnbnew = st.file_uploader("Select downloaded file")
+        if airbnbnew is not None:
+            airbnb = pd.read_csv(airbnbnew)
+            get_airbnb(airbnb, filename)
+            state_total(airbnb, filename)
+            locs()
+            full_clean()
+    return
+
+def as_text(value):
+    if value is None:
+        return ""
+    return str(value)
+
+def quarter_to_date(quarter):
+    year, q = quarter.split('-')
+    if q == 'Q1':
+        return f'31/03/{year}'
+    elif q == 'Q2':
+        return f'30/06/{year}'
+    elif q == 'Q3':
+        return f'30/09/{year}'
+    elif q == 'Q4':
+        return f'31/12/{year}'
+
+def group_age(age_group):
+    if age_group.endswith('+'):
+        lower_age_limit = int(age_group[:-1])
+    elif age_group == 'All ages':
+        return age_group
+    else:
+        lower_age_limit = int(age_group.split('-')[0])
+    if lower_age_limit >= 65:
+        return '65+'
+    else:
+        return age_group
+
+def new_pop_file(file):
+    Population_State_Sex_Age = pd.read_csv(file)
+    Population_State_Sex_Age = Population_State_Sex_Age.rename(columns={'SEX: Sex': 'Sex', 'AGE: Age': 'Age group', 'TIME_PERIOD: Time Period': 'Quarter', 'REGION: Region': 'Region', 'OBS_VALUE': 'Population'})
+    Population_State_Sex_Age = Population_State_Sex_Age.drop(columns=['DATAFLOW', 'MEASURE: Measure', 'FREQ: Frequency', 'UNIT_MEASURE: Unit of Measure', 'OBS_STATUS: Observation Status', 'OBS_COMMENT: Observation Comment'])
+    Population_State_Sex_Age['Date'] = Population_State_Sex_Age['Quarter'].apply(quarter_to_date)
+    Population_State_Sex_Age = Population_State_Sex_Age.drop(columns=['Quarter'])
+    Population_State_Sex_Age['Sex'] = Population_State_Sex_Age['Sex'].map({
+    '1: Males': 'Male',
+    '2: Females': 'Female',
+    '3: Persons': 'Total'
+    })
+    Population_State_Sex_Age['Age group'] = Population_State_Sex_Age['Age group'].str.split(': ').str[1]
+    Population_State_Sex_Age['Region'] = Population_State_Sex_Age['Region'].map({
+    '1: New South Wales': 'NSW',
+    '2: Victoria': 'Vic',
+    '3: Queensland': 'Qld',
+    '4: South Australia': 'SA',
+    '5: Western Australia': 'WA',
+    '6: Tasmania': 'Tas',
+    '7: Northern Territory': 'NT',
+    '8: Australian Capital Territory': 'ACT',
+    'AUS: Australia': 'National'
+    })
+    Population_State_Sex_Age['Date'] = pd.to_datetime(Population_State_Sex_Age['Date'], format='%d/%m/%Y')
+    Population_State_Sex_Age = Population_State_Sex_Age.sort_values(by='Date', ascending=True)
+    pivot_df = Population_State_Sex_Age.pivot_table(
+        index=['Date', 'Sex', 'Age group'], 
+        columns='Region', 
+        values='Population',
+        fill_value=0
+    ).reset_index()
+
+    pivot_df.columns = [f'{col}_Population' if col in ['NSW', 'Vic', 'Qld', 'WA', 'SA', 'Tas', 'ACT', 'NT', 'National'] else col for col in pivot_df.columns]
+
+    Population_State_Sex_Age = pivot_df.rename(columns={'NSW': 'NSW_Population', 'Vic': 'Vic_Population', 'Qld': 'Qld_Population', 'WA': 'WA_Population', 'SA': 'SA_Population', 'Tas': 'Tas_Population', 'ACT': 'ACT_Population', 'NT': 'NT_Population', 'National': 'National_Population'})
+
+    Population_State_Sex_Age['Age group'] = Population_State_Sex_Age['Age group'].apply(group_age)
+
+    Population_State_Sex_Age = Population_State_Sex_Age.groupby(['Age group', 'Sex', 'Date']).agg({
+        'NSW_Population': 'sum',
+        'Vic_Population': 'sum',
+        'Qld_Population': 'sum',
+        'WA_Population': 'sum',
+        'SA_Population': 'sum',
+        'Tas_Population': 'sum',
+        'ACT_Population': 'sum',
+        'NT_Population': 'sum',
+        'National_Population': 'sum'
+    }).reset_index()
+
+    latest_date = Population_State_Sex_Age['Date'].max()
+    latest_date = pd.to_datetime(latest_date)
+    try:
+        current_file = pd.read_csv('DATA/PROCESSED DATA/Population/Population_State_Sex_Age_to_65+.csv')
+    except:
+        current_file = Population_State_Sex_Age
+    
+    latest_current_date = current_file['Date'].max()
+    latest_current_date = pd.to_datetime(latest_current_date)
+
+    if latest_date < latest_current_date:
+        return
+    else:
+        Population_State_Sex_Age.to_csv(PopulationStateSexAge65df, index=False)
+        latest_date = latest_date.strftime('%d/%m/%Y')
+        update_date = pd.to_datetime('today').strftime('%d/%m/%Y')
+        update_log(latest_date, update_date, 'Population (by State, Sex, Age to 65+)')
+    delete_source_file(PopulationNewFile)
+    total(Population_State_Sex_Age)
+    monthlyStatetotal()
+    return
+
+def total(df):
+    df = df[df['Age group'] == 'All ages']
+    df = df.drop(columns='Age group')
+    save_to = 'DATA/PROCESSED DATA/Population/Population_State_Sex_Total'
+    df.to_csv(save_to + '.csv', index=False)
+    df = df[df['Sex'] == 'Total']
+    df = df.drop(columns='Sex')
+    save_to = 'DATA/PROCESSED DATA/Population/Population_State_Total'
+    df.to_csv(save_to + 'csv', index=False)
+    monthlyStatetotal(save_to)
+    columns = df.columns.tolist()
+    columns.remove('WA_Population')
+    columns.remove('Date')
+    df = df.drop(columns=columns)
+    df = df.rename(columns={'WA_Population': 'Population'})
+    save_to = 'DATA/PROCESSED DATA/Population/Population_WA_Total'
+    df.to_csv(save_to + '.csv', index=False)
+    return
+
+def import_population_data():
+    try:
+        new_pop_file(PopulationNewFile)
+    except:
+        pass
+    return
+
+def monthlyStatetotal():
+    df = pd.read_csv('DATA/PROCESSED DATA/Population/Population_State_Total.csv')
+    df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+    df = df.sort_values(by='Date', ascending=True)
+    df = df.set_index('Date').resample('M').mean().interpolate(method='linear').reset_index()
+    df['Date'] = df['Date'].dt.strftime('%d/%m/%Y')
+    df = df.round(0)
+    df.to_csv('DATA/PROCESSED DATA/Population/Population_State_Total_monthly.csv', index=False)
+    return
+
+def get_SHS(source_file):
+    xls = pd.ExcelFile(source_file)
+    all_sheets = {sheet_name: pd.read_excel(xls, sheet_name, header=3) for sheet_name in xls.sheet_names}
+    xls.close()
+    for sheet_name, sheet in all_sheets.items():
+        if len(sheet) > 100:
+            sheet = sheet.drop(sheet.index[-2:])
+            for col in sheet.columns:
+                if sheet[col].dtype == 'object':
+                    sheet[col] = sheet[col].str.replace(chr(8211), "-").str.replace(chr(8212), "-")
+            save_sheet_name = sheet_name.replace(' ', '_')
+            sheet.to_csv('DATA/PROCESSED DATA/SHS/SHS_' + save_sheet_name + '.csv', index=False)
+            all_sheets.update({sheet_name: sheet})
+
+def find_csv_filenames(path_to_dir, prefix, suffix):
+    filenames = os.listdir(path_to_dir)
+    return [ filename for filename in filenames if filename.endswith( suffix ) and filename.startswith(prefix) ]
+
+def convert_case(df):
+    # Convert column names to uppercase
+    df.columns = [col.upper() for col in df.columns]
+    
+    # Convert string values in all columns to uppercase
+    for col in df.columns:
+        if df[col].dtype == "object":
+            df[col] = df[col].str.capitalize()
+
+    return df
+
+def identify_ignore_columns(dataframes_dict):
+    ignore_columns = set()
+    for _, df in dataframes_dict.items():
+        for column in df.columns:
+            if df[column].dtype in ['int64', 'float64']:
+                ignore_columns.add(column)
+            elif 'datetime64' in str(df[column].dtype):
+                ignore_columns.add(column)
+            elif column == 'MONTH':  # specifically ignore 'MONTH' column
+                ignore_columns.add(column)
+    return list(ignore_columns)
+
+def load_and_preprocess_data(path_to_dir, prefix, suffix):
+    filenames = find_csv_filenames(path_to_dir, prefix, suffix)
+    processed_dataframes = {}
+
+    for filename in filenames:
+        df_name = filename.replace('.csv', '')
+        df = pd.read_csv(path_to_dir + '/'+ filename)
+        df = convert_case(df)
+
+        cols_to_check = ['NSW','VIC','QLD','WA','SA','TAS','ACT','NT', 'NATIONAL']
+        df = df.dropna(subset=cols_to_check)
+
+        ignore_cols = identify_ignore_columns({df_name: df})
+
+        check_for_nan_cols = [col for col in df.columns if col not in ignore_cols]
+
+        df = df.dropna(subset=check_for_nan_cols)
+
+        if 'AGE GROUP' in df.columns:
+            df['AGE GROUP'] = df['AGE GROUP'].str.replace(chr(45), "-").str.replace(chr(8211), "-")
+            df['AGE GROUP'] = df['AGE GROUP'].astype(str)
+            if 'All females' in df['AGE GROUP'].unique() or 'All males' in df['AGE GROUP'].unique():
+                df = df[~df['AGE GROUP'].isin(['All females', 'All males'])]
+                df['AGE GROUP'] = df['AGE GROUP'].str.replace(" years", "")
+                df.loc[df['AGE GROUP'] == '15-17', 'AGE GROUP'] = '15-19'
+                df.loc[df['AGE GROUP'] == '18-19', 'AGE GROUP'] = '15-19'
+                object_cols = [col for col in df.columns if df[col].dtype == 'object']
+                datetime_cols = [col for col in df.columns if 'datetime64' in str(df[col].dtype)]
+                numeric_cols = [col for col in df.columns if df[col].dtype in ['int64', 'float64']]
+                df = df.groupby(object_cols + datetime_cols)[numeric_cols].sum().reset_index()
+
+        if 'MONTH' in df.columns:
+            df['DATE'] = '20' + df['MONTH'].str[3:5] + '-' + df['MONTH'].str[0:3] + '-01'
+            df['DATE'] = pd.to_datetime(df['DATE'], format='%Y-%b-%d')
+            df['DATE'] = df['DATE'] + pd.offsets.MonthEnd(0)
+
+        df = df.sort_values(by='DATE', ascending=True)
+        df['DATE'] = df['DATE'].dt.strftime('%d/%m/%Y')
+
+        processed_dataframes[df_name] = df
+    return processed_dataframes
+
+def merge_and_calculate(processed_dataframes, Population_Sex_Age, Population_Sex, Population_Total):
+
+    pop_dfs = {}
+    pop_dfs['Sex_Age'] = Population_Sex_Age
+    pop_dfs['Sex'] = Population_Sex
+    pop_dfs['Total'] = Population_Total
+
+    for pop_df_name, pop_df in pop_dfs.items():
+        pop_df.columns = [col.upper() for col in pop_df.columns]
+        pop_df['DATE'] = pd.to_datetime(pop_df['DATE'], format='%Y-%m-%d', errors='coerce')
+        pop_df = pop_df.set_index('DATE')
+        pop_df_name = pop_df
+
+    Population_Sex_Age['AGE GROUP'] = Population_Sex_Age['AGE GROUP'].str.replace(chr(45), "-").str.replace(chr(8211), "-")
+
+    regions = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT']
+    SHS_with_population_calcs = {}
+
+    for df_name, df in processed_dataframes.items():
+        df['DATE'] = pd.to_datetime(df['DATE'], format='%d/%m/%Y', dayfirst=True)
+        if 'AGE GROUP' in df.columns:
+            df['JoinLeft'] = df['DATE'].astype(str) + ' ' + df['SEX'].astype(str) + ' ' + df['AGE GROUP'].astype(str)
+            Population_Sex_Age['JoinRight'] = Population_Sex_Age['DATE'].astype(str) + ' ' + Population_Sex_Age['SEX'].astype(str) + ' ' + Population_Sex_Age['AGE GROUP'].astype(str)
+            merged_df = pd.merge(df, Population_Sex_Age, left_on=['JoinLeft'], right_on=['JoinRight'], how='left')
+            merged_df = merged_df.sort_values(by=['SEX_y', 'AGE GROUP_y', 'DATE_y'])
+            
+        else:
+            if 'SEX' in df.columns:
+                df['JoinLeft'] = df['DATE'].astype(str) + ' ' + df['SEX'].astype(str)
+                Population_Sex['JoinRight'] = Population_Sex['DATE'].astype(str) + ' ' + Population_Sex['SEX'].astype(str)
+                merged_df = pd.merge(df, Population_Sex, left_on=['JoinLeft'], right_on=['JoinRight'], how='left')
+                merged_df = merged_df.sort_values(by=['SEX_y', 'DATE_y']) 
+            else:
+                merged_df = pd.merge(df, Population_Total, left_on=['DATE'], right_on=['DATE'], how='left')
+                merged_df = merged_df.sort_values(by=['DATE_y'])
+            
+        pop_cols = [col for col in merged_df.columns if col.endswith('_POPULATION')]
+        merged_df[pop_cols] = merged_df[pop_cols].ffill(axis=1)
+        merged_df = merged_df.sort_values(by=['DATE_x'])
+        merged_df = merged_df.fillna(method='ffill')
+        merged_df = merged_df.drop(columns=['JoinLeft', 'JoinRight'])
+        merged_df = merged_df.loc[:,~merged_df.columns.str.endswith('_y')]
+        merged_df = merged_df.rename(columns=lambda x: x.replace('_x', '') if x.endswith('_x') else x)
+        cols = list(merged_df.columns)
+        cols.insert(0, cols.pop(cols.index('DATE')))
+        merged_df = merged_df[cols]
+
+        merged_df['NATIONAL_PER_10k'] = merged_df['NATIONAL'] / merged_df['NATIONAL_POPULATION'] * 10000
+        for region in regions:
+            population_column_name = f"{region}_POPULATION"
+            per_10000_column = f"{region}_PER_10k"
+            merged_df[per_10000_column] = merged_df[region] / merged_df[population_column_name] * 10000
+            proportion_of_national_column = f"{region}_PROPORTION_OF_NATIONAL"
+            merged_df[proportion_of_national_column] = (merged_df[region] / merged_df['NATIONAL']) * 100
+            proportion_of_national_per_10000_column = f"{region}_PROPORTION_OF_NATIONAL_PER_10k"
+            merged_df[proportion_of_national_per_10000_column] = (merged_df[per_10000_column] / merged_df['NATIONAL_PER_10k']) * 100
+            prop_national_pop_column = f"{region}_PROPORTION_OF_NATIONAL_POPULATION"     
+            merged_df[prop_national_pop_column] = (merged_df[population_column_name] / merged_df['NATIONAL_POPULATION']) * 100
+            prop_compared_prop_pop = f"{region}_PROPORTION_OF_NATIONAL_COMPARED_TO_PROP_POP"
+            merged_df[prop_compared_prop_pop] = (merged_df[proportion_of_national_column] / merged_df[prop_national_pop_column]) * 100
+        numeric_cols = [col for col in merged_df.columns if merged_df[col].dtype in ['int64', 'float64']]
+        merged_df[numeric_cols] = merged_df[numeric_cols].round(1)
+        SHS_with_population_calcs[df_name] = merged_df
+        merged_df.to_csv(f'DATA/PROCESSED DATA/SHS/WithPopulation/{df_name}_WithPopulation.csv', index=False)
+    return SHS_with_population_calcs
+
+def long_formSHS(SHS_with_population_calcs, source_file):
+    long_form_dfs = {}
+    latest_dates = []
+    for df_name, df in SHS_with_population_calcs.items():
+        id_vars = ['DATE'] + [col for col in df.columns if df[col].dtype == 'object']
+        value_vars = [col for col in df.columns if df[col].dtype in ['int64', 'float64']]
+        long_form_dfs[df_name] = pd.melt(df, id_vars=id_vars, value_vars=value_vars, var_name='MEASURE', value_name='VALUE')
+        long_form_dfs[df_name]['MEASURE'] = long_form_dfs[df_name]['MEASURE'].str.replace('_', ' ')
+        long_form_dfs[df_name]['MEASURE'] = long_form_dfs[df_name]['MEASURE'].str.lower()
+        long_form_dfs[df_name]['MEASURE'] = long_form_dfs[df_name]['MEASURE'].str.capitalize()
+        #create column State, which is measure before first space
+        long_form_dfs[df_name]['STATE'] = long_form_dfs[df_name]['MEASURE'].str.split(' ').str[0]
+        #create column Measure, which is remaining measure after moving State to its own column
+        long_form_dfs[df_name]['MEASURE'] = long_form_dfs[df_name]['MEASURE'].str.split(' ').str[1:].str.join(' ')
+        long_form_dfs[df_name]['STATE'] = long_form_dfs[df_name]['STATE'].str.replace('Wa', 'WA').str.replace('Nsw', 'NSW').str.replace('Sa', 'SA').str.replace('Nt', 'NT').str.replace('Act', 'ACT')
+        #move State column to second column
+        cols = list(long_form_dfs[df_name].columns)
+        cols.insert(1, cols.pop(cols.index('STATE')))
+        long_form_dfs[df_name] = long_form_dfs[df_name][cols]
+        long_form_dfs[df_name].to_csv(f'DATA/PROCESSED DATA/SHS/Long_Form/{df_name}_Long_Form.csv', index=False)
+        latest_date = df['DATE'].max()
+        latest_date = pd.to_datetime(latest_date)
+        latest_dates.append(latest_date)
+
+
+    latest_date = max(latest_dates)
+    latest_date = pd.to_datetime(latest_date)
+    update_date = pd.to_datetime('today').strftime('%d/%m/%Y')
+    update_log(latest_date, update_date, dataset= 'Monthly SHS data from AIHW')
+
+    return 
+
+def import_shs_data(source_file):
+    path_to_dir = "DATA/PROCESSED DATA/SHS"
+    prefix = 'SHS_'
+    suffix = '.csv'
+    Population_Sex_Age = pd.read_csv('DATA\PROCESSED DATA\Population\Population_State_Sex_Age_to_65+.csv')
+    Population_Sex = pd.read_csv('DATA\PROCESSED DATA\Population\Population_State_Sex_Total.csv')
+    Population_Total = pd.read_csv('DATA\PROCESSED DATA\Population\Population_State_Total_monthly.csv')
+    get_SHS(source_file)
+    processsed_dataframes = load_and_preprocess_data(path_to_dir, prefix, suffix)
+    SHS_with_population_calcs = merge_and_calculate(processsed_dataframes, Population_Sex_Age, Population_Sex, Population_Total)
+    long_formSHS(SHS_with_population_calcs, source_file)
+    return
+
+def get_airbnb(df, df_name):
+    dfs = {}
+    df_summaries = {}
+    dfs[df_name] = df
+    for df_name, df in dfs.items():
+        df_summary_name = f"{df_name}_summary"
+        df = df.groupby(['neighbourhood', 'room_type']).agg({'id': 'count', 'price': ['mean', 'median'], 'availability_365': ['mean', 'median']})
+        df.columns = ['_'.join(col) for col in df.columns]
+        df = df.reset_index()
+        df = df.rename(columns={'id_count': 'count_listings'})
+        df['date'] = df_name
+        df_summaries[df_summary_name] = df
+
+    df_summary = pd.concat(df_summaries.values())
+    latest_date = df_summary['date'].max()
+    latest_date = pd.to_datetime(latest_date).strftime('%d/%m/%Y')
+    
+    try:
+        airbnb0 = pd.read_csv('DATA/PROCESSED DATA/Airbnb/airbnb_summary.csv')
+        airbnb0 = pd.concat([airbnb0, df_summary])
+        airbnb0 = airbnb0.drop_duplicates()
+        airbnb0.to_csv('DATA/PROCESSED DATA/Airbnb/airbnb_summary.csv', index=False)
+        update_log(latest_date, pd.to_datetime('today'), 'Airbnb')
+    except:
+        df_summary.to_csv('DATA/PROCESSED DATA/Airbnb/airbnb_summary.csv', index=False)
+        update_log(latest_date, pd.to_datetime('today'), 'Airbnb')
+    return
+
+def state_total(df, df_name):
+    filenames = os.listdir('DATA/SOURCE DATA/Airbnb')
+    airbnbwa0 = pd.read_csv('DATA/PROCESSED DATA/Airbnb/Airbnb_WAtotals.csv')
+    dfs = {}
+    df_summaries = {}
+
+    df['date'] = df_name
+    dfs[df_name] = df
+    all_details = pd.concat(dfs.values())
+    for df_name, df in dfs.items():
+        df_summary_name = f"{df_name}_summary"
+        df = df.groupby(['room_type']).agg({'id': 'count', 'price': ['mean', 'median'], 'availability_365': ['mean', 'median']})
+        df.columns = ['_'.join(col) for col in df.columns]
+        df = df.reset_index()
+        df = df.rename(columns={'id_count': 'count_listings'})
+        df['date'] = df_name
+        df_summaries[df_summary_name] = df
+    df_summary_wa = pd.concat(df_summaries.values())
+    
+    try:
+        df_summary_wa = pd.concat([airbnbwa0, df_summary_wa])
+    except:
+        pass
+
+    df_summary_wa.to_csv('DATA/PROCESSED DATA/Airbnb_WAtotals.csv', index=False)
+    all_details.to_csv('DATA/PROCESSED DATA/Airbnb_full.csv', index=False)
+    return
+
+def locs():
+    df = pd.read_csv('DATA/PROCESSED DATA/Airbnb/airbnb_summary.csv')
+    locs = pd.read_csv('DATA/Data descriptions/australian_postcodes.csv')
+    #filter locs to WA
+    locs = locs[locs['state'] == 'WA']
+    #drop any sa4name = Northern Territory - Outback
+    locs = locs[locs['sa4name'] != 'Northern Territory - Outback']
+    #drop locs columns id, dc, type, state, status, sa3, sa4, region, SA1_MAINCODE_2011,	SA1_MAINCODE_2016,	SA2_MAINCODE_2016, SA3_CODE_2016, SA4_CODE_2016,	RA_2011	RA_2016	MMM_2015	MMM_2019	ced	altitude	chargezone	phn_code	phn_name
+    locs = locs.drop(columns=['id', 'dc', 'type', 'state', 'status', 'sa3', 'sa4', 'sa3name', 'sa4name', 'region', 'SA1_MAINCODE_2011',	'SA1_MAINCODE_2016',	'SA2_MAINCODE_2016', 'SA3_CODE_2016', 'SA4_CODE_2016',	'RA_2011',	'RA_2016',	'MMM_2015',	'MMM_2019',	'altitude',	'chargezone',	'phn_code', 'long', 'lat', 'Lat_precise', 'Long_precise'])
+    map = pd.read_csv('DATA/PROCESSED DATA/Airbnb/Airbnb_map.csv')
+    map_old = map['old'].unique()
+
+
+    df_full = pd.read_csv('DATA/PROCESSED DATA/Airbnb/Airbnb_summary.csv')
+    if df_full['neighbourhood'].isin(map_old).any():
+        df_full['neighbourhood'] = df_full['neighbourhood'].replace(map_old, map['new'])
+
+    df_full = pd.merge(df_full, locs, left_on='neighbourhood', right_on='locality', how='left')
+
+    if df['neighbourhood'].isin(map_old).any():
+        df['neighbourhood'] = df['neighbourhood'].replace(map_old, map['new'])
+    df = pd.merge(df, locs, left_on='neighbourhood', right_on='locality', how='left')
+
+    df_full.to_csv('DATA/PROCESSED DATA/Airbnb/Airbnb_full.csv', index=False)
+    df.to_csv('DATA/PROCESSED DATA/Airbnb/airbnb_summary.csv', index=False)
+    return
+
+def full_clean():
+    df = pd.read_csv('DATA/PROCESSED DATA/Airbnb/Airbnb_full.csv')
+    colstokeep = ['neighbourhood',	'room_type','count_listings',	'price_mean',	'price_median',	'availability_365_mean', 'availability_365_median','date']
+    df = df[colstokeep]
+    
+
+    print(df.columns)
+    df_allgeo = df.groupby(['date', 'room_type', 'SA2_NAME_2016', 'SA3_NAME_2016', 'SA4_NAME_2016', 'ced', 'lgaregion', 'lgacode', 'electorate', 'electoraterating']).agg({'count_listings': 'count', 'price_mean': ['mean'], 'price_median': ['median'], 'availability_365_mean': ['mean'], 'availability_365_median': ['median']})
+    df_allgeo.columns = ['_'.join(col) for col in df_allgeo.columns]
+    df_allgeo = df_allgeo.reset_index()
+
+    df_allgeo.to_csv('DATA/PROCESSED DATA/Airbnb/Airbnb_allgeo.csv', index=False)
+    return
+
+
 if __name__ == "__main__":
+    data_updates()
     home()
 

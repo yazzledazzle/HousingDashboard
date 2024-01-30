@@ -3,7 +3,6 @@ import os
 from os import listdir
 import pandas as pd
 import openpyxl
-from openpyxl import load_workbook
 
 def delete_source_file(file):
     if os.path.exists(file):
@@ -26,7 +25,7 @@ def update_log(latest_date, update_date, dataset):
     update_log['Latest data point'] = update_log['Latest data point'].dt.strftime('%d/%m/%Y')
     update_log['Date last updated'] = update_log['Date last updated'].dt.strftime('%d/%m/%Y') 
     update_log.to_excel('DATA/SOURCE DATA/update_log.xlsx', index=False)
-    book = load_workbook('DATA/SOURCE DATA/update_log.xlsx')
+    book = openpyxl.load_workbook('DATA/SOURCE DATA/update_log.xlsx')
     sheet = book.active
     for column_cells in sheet.columns:
         length = max(len(as_text(cell.value)) for cell in column_cells)

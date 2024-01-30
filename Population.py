@@ -1,10 +1,6 @@
 import pandas as pd
-import os
-import pandas as pd
-from openpyxl import load_workbook
 
-source_file = 'DATA/SOURCE DATA/Population/Population.csv'
-dataset = 'Population (by State, Sex, Age to 65+)'
+
 
 def delete_source_file(file):
     if os.path.exists(source_file):
@@ -13,9 +9,9 @@ def delete_source_file(file):
     else:
         return
 
-def update_log(latest_date, update_date, dataset):
+def update_log(latest_date, update_date, dataset = 'Population (by State, Sex, Age to 65+)'):
     try:
-        update_log = pd.read_excel('DATA/SOURCE DATA/update_log.xlsx')
+        update_log = pd.read_excel(updatelogfile)
     except:
         update_log = pd.DataFrame(columns=['Dataset', 'Latest data point', 'Date last updated'])
     new_row = pd.DataFrame({'Dataset': [dataset], 'Latest data point': [latest_date], 'Date last updated': [update_date]})
@@ -25,13 +21,13 @@ def update_log(latest_date, update_date, dataset):
     update_log = update_log.sort_values(by=['Latest data point', 'Date last updated'], ascending=False).drop_duplicates(subset=['Dataset'], keep='first')
     update_log['Latest data point'] = update_log['Latest data point'].dt.strftime('%d/%m/%Y')
     update_log['Date last updated'] = update_log['Date last updated'].dt.strftime('%d/%m/%Y')                            
-    update_log.to_excel('DATA/SOURCE DATA/update_log.xlsx', index=False)
-    book = load_workbook('DATA/SOURCE DATA/update_log.xlsx')
+    update_log.to_excel(updatelogfile, index=False)
+    book = openpyxl.load_workbook(updatelogfile)
     sheet = book.active
     for column_cells in sheet.columns:
         length = max(len(as_text(cell.value)) for cell in column_cells)
         sheet.column_dimensions[column_cells[0].column_letter].width = length
-    book.save('DATA/SOURCE DATA/update_log.xlsx')
+    book.save(updatelogfile)
     return
 
 def as_text(value):
@@ -125,11 +121,11 @@ def new_pop_file(file):
     if latest_date < latest_current_date:
         return
     else:
-        Population_State_Sex_Age.to_csv('DATA/PROCESSED DATA/Population/Population_State_Sex_Age_to_65+.csv', index=False)
+        Population_State_Sex_Age.to_csv(PopulationStateSexAge65df, index=False)
         latest_date = latest_date.strftime('%d/%m/%Y')
         update_date = pd.to_datetime('today').strftime('%d/%m/%Y')
         update_log(latest_date, update_date, dataset)
-    delete_source_file(source_file)
+    delete_source_file(PopulationNewFile)
     total(Population_State_Sex_Age)
     return
 
@@ -138,7 +134,7 @@ def total(df):
     df = df.drop(columns='Age group')
     save_to = 'DATA/PROCESSED DATA/Population/Population_State_Sex_Total'
     df.to_csv(save_to + '.csv', index=False)
-    population_to_monthly (save_to)
+    population_to_monthly(save_to)
     df = df[df['Sex'] == 'Total']
     df = df.drop(columns='Sex')
     save_to = 'DATA/PROCESSED DATA/Population/Population_State_Total'
@@ -156,7 +152,21 @@ def total(df):
 
 def import_population_data():
     try:
-        new_pop_file(source_file)
+        new_pop_file(PopulationNewFile)
     except:
         pass
     return
+
+def monthlyStatetotal():
+    df = pd.read_csv('DATA/PROCESSED DATA/Population/Population_State_Total.csv')
+    df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+    df = df.sort_values(by='Date', ascending=True)
+    #resample to monthly, interpolate missing values
+    df = df.set_index('Date').resample('M').mean().interpolate(method='linear').reset_index()
+    df['Date'] = df['Date'].dt.strftime('%d/%m/%Y')
+    #round down any numeric columns to 0 decimal places
+    df = df.round(0)
+    df.to_csv('DATA/PROCESSED DATA/Population/Population_State_Total_monthly.csv', index=False)
+    return
+
+monthlyStatetotal()
